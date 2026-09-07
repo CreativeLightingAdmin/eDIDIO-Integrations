@@ -35,8 +35,9 @@ yarn-error.log*
 # --- Logs ---
 *.log
 
-# --- OS / editor ---
+# --- OS / editor / tooling ---
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+.claude/

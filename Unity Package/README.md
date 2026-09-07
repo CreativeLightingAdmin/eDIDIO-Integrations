@@ -23,7 +23,7 @@ installations, museums, theme-park attractions and **virtual production**.
 
 **Option A — from a Git URL:** Window → Package Manager → **+** → *Add package
 from git URL* →
-`https://github.com/CreativeLightingAdmin/eDIDIO_3rd_Party.git?path=/Unity Package`
+`https://github.com/CreativeLightingAdmin/eDIDIO-Integrations.git?path=/Unity Package`
 
 **Option B — local:** Package Manager → **+** → *Add package from disk* → select
 this folder's `package.json`.

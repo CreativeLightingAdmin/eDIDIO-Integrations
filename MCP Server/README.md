@@ -55,7 +55,7 @@ Add to your `claude_desktop_config.json` (Settings → Developer → Edit Config
     "edidio": {
       "command": "python",
       "args": ["-m", "edidio_mcp"],
-      "cwd": "F:\\My Documents\\GitHub\\eDIDIO_3rd_Party\\MCP Server",
+      "cwd": "C:\\path\\to\\eDIDIO-Integrations\\MCP Server",
       "env": {
         "EDIDIO_HOST": "192.168.1.50",
         "EDIDIO_PORT": "23"

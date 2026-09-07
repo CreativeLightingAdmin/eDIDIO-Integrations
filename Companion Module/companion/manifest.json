@@ -5,8 +5,8 @@
 	"description": "Control Freak eDIDIO lighting control (DALI, DMX, SpektraPlus) over TCP/TLS.",
 	"version": "1.0.0",
 	"license": "MIT",
-	"repository": "https://github.com/CreativeLightingAdmin/eDIDIO_3rd_Party",
-	"bugs": "https://github.com/CreativeLightingAdmin/eDIDIO_3rd_Party/issues",
+	"repository": "https://github.com/CreativeLightingAdmin/eDIDIO-Integrations",
+	"bugs": "https://github.com/CreativeLightingAdmin/eDIDIO-Integrations/issues",
 	"maintainers": [
 		{ "name": "Michael Howes", "email": "michael@creativelighting.com.au" }
 	],

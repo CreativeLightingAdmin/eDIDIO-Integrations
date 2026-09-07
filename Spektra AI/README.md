@@ -67,7 +67,7 @@ Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
     "spektra-ai": {
       "command": "python",
       "args": ["-m", "edidio_spektra_ai"],
-      "cwd": "F:\\My Documents\\GitHub\\eDIDIO_3rd_Party\\Spektra AI"
+      "cwd": "C:\\path\\to\\eDIDIO-Integrations\\Spektra AI"
     }
   }
 }
