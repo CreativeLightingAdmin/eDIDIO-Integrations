@@ -1,0 +1,15 @@
+{
+  "name": "companion-module-creativelighting-edidio",
+  "version": "1.0.0",
+  "description": "Bitfocus Companion module for Control Freak eDIDIO lighting control.",
+  "main": "main.js",
+  "author": "Michael Howes",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@companion-module/base": "~1.11.0"
+  },
+  "devDependencies": {}
+}

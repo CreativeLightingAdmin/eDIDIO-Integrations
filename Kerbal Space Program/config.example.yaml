@@ -1,0 +1,39 @@
+# eDIDIO Kerbal Space Program bridge config. Copy to config.yaml.
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+krpc:
+  host: 127.0.0.1     # where KSP + the kRPC server is running
+  interval: 0.5       # telemetry poll interval (s)
+
+ksp:
+  # Throttle -> brightness on a DALI group.
+  throttle:
+    enabled: true
+    line: 1
+    group: 0
+
+  # Fuel remaining -> a green (full) to red (empty) gauge on a DMX line.
+  fuel:
+    enabled: true
+    line: 2
+    colors: ["#FF0000", "#FFC000", "#00FF00"]
+
+  # Abort action -> red flash.
+  abort:
+    enabled: true
+    action: { kind: dmx_color, line: 2, rgb: [255, 0, 0] }
+
+  # Staging -> a burst sequence.
+  stage:
+    enabled: true
+    action: { kind: spektra, type: sequence, zone: 1, index: 0, action: start }
+
+  # Flight-situation scenes (kRPC situations, lowercased).
+  situations:
+    pre_launch: { kind: dali_scene, line: 1, scene: 1 }
+    orbiting:   { kind: dali_scene, line: 1, scene: 5 }
+    landed:     { kind: dali_scene, line: 1, scene: 2 }

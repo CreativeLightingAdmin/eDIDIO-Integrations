@@ -1,0 +1,90 @@
+# eDIDIO gateways as containers.
+#
+# Usage:
+#   1. Put each gateway's config in Docker/config/ (see config/README.md).
+#   2. From this folder:  docker compose up -d <service>   (or all).
+#
+# Build context is the repo root (..) so images can read the gateway source.
+# The shared engine edidio_control_py is installed from PyPI (via requirements.txt).
+
+services:
+  rest:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.node
+    image: edidio-rest
+    ports:
+      - "8080:8080"
+    environment:
+      EDIDIO_IP: "192.168.1.50"
+      EDIDIO_USE_TLS: "false"
+      # EDIDIO_API_KEY: "change-me"
+    restart: unless-stopped
+
+  modbus:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.python
+      args:
+        GATEWAY: "Modbus TCPRTUGateway"
+    image: edidio-modbus
+    ports:
+      - "5020:5020"
+    volumes:
+      - ./config/modbus.yaml:/config/config.yaml:ro
+    restart: unless-stopped
+
+  mqtt:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.python
+      args:
+        GATEWAY: "MQTT Bridge"
+    image: edidio-mqtt
+    volumes:
+      - ./config/mqtt.yaml:/config/config.yaml:ro
+    restart: unless-stopped
+
+  osc:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.python
+      args:
+        GATEWAY: "OSC Bridge"
+    image: edidio-osc
+    ports:
+      - "8000:8000/udp"
+    volumes:
+      - ./config/osc.yaml:/config/config.yaml:ro
+    restart: unless-stopped
+
+  knx:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.python
+      args:
+        GATEWAY: "KNX Gateway"
+    image: edidio-knx
+    volumes:
+      - ./config/knx.yaml:/config/config.yaml:ro
+    # KNXnet/IP routing uses multicast; if you use `connection: routing`, run on
+    # the host network so multicast works:
+    # network_mode: host
+    restart: unless-stopped
+
+  homekit:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.python
+      args:
+        GATEWAY: "HomeKit Bridge"
+    image: edidio-homekit
+    # HomeKit needs mDNS/Bonjour on the LAN -> host networking (Linux hosts).
+    network_mode: host
+    volumes:
+      - ./config/homekit.yaml:/config/config.yaml:ro
+      - homekit_state:/data
+    restart: unless-stopped
+
+volumes:
+  homekit_state:

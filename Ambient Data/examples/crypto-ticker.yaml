@@ -1,0 +1,31 @@
+# Stock / Crypto volatility ticker — the headline example.
+# Polls a price API and shifts a DMX line along a red→yellow→green gradient
+# based on 24h % change (down = red, flat = yellow, up = green).
+#
+# This uses CoinGecko's free API (Bitcoin 24h change). Swap the url/json_path for
+# any JSON price/percent endpoint (a stock API, your portfolio, the VIX, etc.).
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+source:
+  type: http_poll
+  name: "BTC 24h change"
+  url: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true"
+  json_path: "bitcoin.usd_24h_change"   # a percentage, e.g. -2.4 .. +3.1
+  interval: 60                          # seconds (respect API rate limits)
+
+mapping:
+  type: gradient
+  line: 2                # DMX line to paint
+  min: -3                # -3% or worse -> full red
+  max: 3                 # +3% or better -> full green
+  colors:
+    - "#FF0000"          # down
+    - "#FFC000"          # flat
+    - "#00FF00"          # up
+
+# Don't repaint more than once every 2 s even if the value jumps.
+min_interval: 2

@@ -1,0 +1,8 @@
+# eDIDIO HomeKit Bridge dependencies.
+HAP-python>=5.0        # Apple HomeKit Accessory Protocol server
+# HAP-python[QRCode]   # optional: prints a scannable pairing QR code
+PyYAML>=6.0            # config parsing
+# Shared eDIDIO Python protocol engine (>=0.3.0 for group levels, scene recall).
+# Install locally in editable mode during development:
+#   pip install -e ../../edidio_control_py
+edidio_control_py>=0.4.0

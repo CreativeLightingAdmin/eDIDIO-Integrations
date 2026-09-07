@@ -1,0 +1,100 @@
+<script type="text/javascript">
+	RED.nodes.registerType('edidio-dali', {
+		category: 'eDIDIO',
+		color: '#87CEEB',
+		defaults: {
+			name: { value: '' },
+			controller: { value: '', type: 'edidio-controller', required: true },
+			action: { value: 'level' },
+			line: { value: 1, validate: RED.validators.number() },
+			address: { value: 0 },
+			group: { value: '' },
+			level: { value: 254 },
+			scene: { value: 0 },
+			command: { value: 'off' },
+			arg: { value: 0 },
+		},
+		inputs: 1,
+		outputs: 1,
+		icon: 'light.svg',
+		label: function () {
+			return this.name || 'DALI ' + (this.action || 'level');
+		},
+		oneditprepare: function () {
+			const toggle = () => {
+				const a = $('#node-input-action').val();
+				$('.edidio-addr').toggle(['level', 'onoff', 'command'].includes(a));
+				$('.edidio-group').toggle(['group_level', 'group_onoff', 'scene'].includes(a));
+				$('.edidio-level').toggle(['level', 'group_level'].includes(a));
+				$('.edidio-scene').toggle(a === 'scene');
+				$('.edidio-command').toggle(a === 'command');
+			};
+			$('#node-input-action').on('change', toggle);
+			toggle();
+		},
+	});
+</script>
+
+<script type="text/html" data-template-name="edidio-dali">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Optional name" />
+	</div>
+	<div class="form-row">
+		<label for="node-input-controller"><i class="fa fa-server"></i> Controller</label>
+		<input type="text" id="node-input-controller" />
+	</div>
+	<div class="form-row">
+		<label for="node-input-action"><i class="fa fa-bolt"></i> Action</label>
+		<select id="node-input-action">
+			<option value="level">Set level (address)</option>
+			<option value="group_level">Set level (group)</option>
+			<option value="onoff">On/Off (address)</option>
+			<option value="group_onoff">On/Off (group)</option>
+			<option value="command">DALI command</option>
+			<option value="scene">Recall scene</option>
+		</select>
+	</div>
+	<div class="form-row">
+		<label for="node-input-line"><i class="fa fa-sitemap"></i> Line</label>
+		<input type="text" id="node-input-line" placeholder="1-4" />
+	</div>
+	<div class="form-row edidio-addr">
+		<label for="node-input-address"><i class="fa fa-lightbulb-o"></i> Address</label>
+		<input type="text" id="node-input-address" placeholder="0-63" />
+	</div>
+	<div class="form-row edidio-group">
+		<label for="node-input-group"><i class="fa fa-object-group"></i> Group</label>
+		<input type="text" id="node-input-group" placeholder="0-15" />
+	</div>
+	<div class="form-row edidio-level">
+		<label for="node-input-level"><i class="fa fa-sliders"></i> Level</label>
+		<input type="text" id="node-input-level" placeholder="0-254" />
+	</div>
+	<div class="form-row edidio-scene">
+		<label for="node-input-scene"><i class="fa fa-film"></i> Scene</label>
+		<input type="text" id="node-input-scene" placeholder="0-15" />
+	</div>
+	<div class="form-row edidio-command">
+		<label for="node-input-command"><i class="fa fa-terminal"></i> Command</label>
+		<input type="text" id="node-input-command" placeholder="off, on, max, min, fade_up…" />
+	</div>
+	<div class="form-row edidio-command">
+		<label for="node-input-arg"><i class="fa fa-hashtag"></i> Arg</label>
+		<input type="text" id="node-input-arg" placeholder="0" />
+	</div>
+</script>
+
+<script type="text/html" data-help-name="edidio-dali">
+	<p>Send a DALI command to an eDIDIO controller.</p>
+	<p>Configured fields are defaults; matching <code>msg.payload</code> fields override them, e.g.
+	<code>{ "address": 5, "level": 100 }</code>.</p>
+	<h3>Actions</h3>
+	<ul>
+		<li><b>Set level</b> — address or group to an arc level (0-254).</li>
+		<li><b>On/Off</b> — <code>value</code> 0 = off, anything else = on (max).</li>
+		<li><b>DALI command</b> — a named command (<code>off, on, max, min, fade_up, fade_down, step_up, step_down, recall_last, identify</code>) or a raw code, with optional <code>arg</code>.</li>
+		<li><b>Recall scene</b> — scene 0-15; broadcast on the line, or on a group if <code>group</code> is set.</li>
+	</ul>
+	<p><b>Line</b> is the physical daughter-board slot (1-4).</p>
+</script>

@@ -1,0 +1,16 @@
+# eDIDIO Generative AI Moods config. Copy to config.yaml.
+
+# LLM provider: 'demo' (offline keyword palettes, no key) or 'anthropic' (Claude).
+provider: demo
+
+# DMX lines to paint with the palette. If the palette has more colours than
+# lines, the first N colours are used; fewer, and they cycle.
+lines: [2]
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+# For provider: anthropic, set ANTHROPIC_API_KEY in your environment.
+# Optional: EDIDIO_GENAI_MODEL (default a current Claude model).

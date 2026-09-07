@@ -1,0 +1,32 @@
+# Solar & Grid Power Sync — accent lighting shifts green when you're running on
+# clean/solar power and red when drawing from the grid.
+#
+# Pure http_poll: read a "grid power" figure from your inverter's local API and
+# map it on a gradient. Positive grid draw (importing) -> red; negative (exporting
+# solar) -> green. Adjust url/json_path for your inverter (Fronius shown; SMA,
+# Tesla/Powerwall, Enphase all expose similar local/cloud JSON).
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+source:
+  type: http_poll
+  name: "Grid power (W)"
+  # Fronius local API: P_Grid > 0 = importing from grid, < 0 = exporting solar.
+  url: "http://192.168.1.20/solar_api/v1/GetPowerFlowRealtimeData.fcgi"
+  json_path: "Body.Data.Site.P_Grid"
+  interval: 15
+
+mapping:
+  type: gradient
+  line: 2
+  min: -3000            # exporting 3kW of solar -> full green
+  max: 3000             # importing 3kW from grid -> full red
+  colors:
+    - "#00FF00"         # clean / exporting
+    - "#FFC000"         # neutral
+    - "#FF0000"         # grid draw
+
+min_interval: 2

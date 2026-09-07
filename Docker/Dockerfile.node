@@ -1,0 +1,18 @@
+# Image for the REST API Gateway (Node.js).
+# Build context is the repo root:
+#   docker build -f Docker/Dockerfile.node -t edidio-rest .
+
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install production deps first for better layer caching.
+COPY ["Rest API Gateway/package.json", "./"]
+RUN npm install --omit=dev --no-audit --no-fund
+
+# App source.
+COPY ["Rest API Gateway/", "./"]
+
+EXPOSE 8080
+# Configured via environment variables (see docker-compose.yml / the gateway README).
+CMD ["node", "src/server.js"]

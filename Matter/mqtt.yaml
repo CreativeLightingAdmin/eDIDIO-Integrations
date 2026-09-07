@@ -1,0 +1,36 @@
+# eDIDIO MQTT Bridge config for the Matter recipe.
+# Run with the MQTT Bridge:  cd "../MQTT Bridge" && python run.py --config ../Matter/mqtt.yaml
+# Point mqtt.host at Home Assistant's broker; entities appear in HA via
+# auto-discovery, then export them to Matter (see README.md).
+
+mqtt:
+  host: 127.0.0.1        # Home Assistant's MQTT broker (Mosquitto)
+  port: 1883
+  username: ""
+  password: ""
+  base_topic: edidio
+  discovery: true
+  discovery_prefix: homeassistant
+
+controller:
+  id: edidio1
+  host: 192.168.1.50     # your eDIDIO
+  port: 23
+  use_tls: false
+
+entities:
+  - id: kitchen
+    name: "Kitchen"
+    type: light
+    line: 1
+    address: 5
+  - id: living
+    name: "Living Room"
+    type: light
+    line: 1
+    group: 0
+  - id: dinner
+    name: "Dinner Scene"
+    type: scene
+    line: 1
+    scene: 3

@@ -1,0 +1,33 @@
+# Server / infra health — pulse the rack (or office) lighting on load.
+#
+# Pure http_poll against Prometheus' instant-query API. Extract a metric value
+# (e.g. cluster CPU %, error rate) and map it on a threshold: calm green under
+# load, amber warning, red alert on a spike.
+#
+# For a PUSH model (Grafana alert -> webhook) instead of polling, see
+# grafana-alert.yaml.
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+source:
+  type: http_poll
+  name: "Cluster CPU %"
+  # Prometheus instant query returns result[0].value = [timestamp, "value"].
+  url: "http://prometheus.local:9090/api/v1/query?query=100*(1-avg(rate(node_cpu_seconds_total{mode='idle'}[5m])))"
+  json_path: "data.result.0.value.1"
+  interval: 15
+
+mapping:
+  type: threshold
+  bands:
+    - min: 0            # healthy
+      action: { kind: dmx_color, line: 2, rgb: [0, 200, 0] }
+    - min: 70           # warm
+      action: { kind: dmx_color, line: 2, rgb: [255, 180, 0] }
+    - min: 90           # spike -> red alert
+      action: { kind: dmx_color, line: 2, rgb: [255, 0, 0] }
+
+min_interval: 2

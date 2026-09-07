@@ -1,0 +1,19 @@
+// openHAB MQTT Things for eDIDIO (via the eDIDIO MQTT Bridge).
+// Requires the MQTT binding. Adjust the broker host and the entity ids/topics
+// to match your MQTT bridge config.yaml (base_topic default: edidio).
+
+Bridge mqtt:broker:mosquitto [ host="192.168.1.10", port=1883 ] {
+
+    Thing topic edidio "eDIDIO" {
+        Channels:
+            // Light (DALI address or group) — on/off + brightness (0-254).
+            Type switch : kitchen        "Kitchen"            [ commandTopic="edidio/kitchen/set", stateTopic="edidio/kitchen/state", on="ON", off="OFF" ]
+            Type dimmer : kitchen_bri    "Kitchen Brightness" [ commandTopic="edidio/kitchen/brightness/set", stateTopic="edidio/kitchen/brightness", min=0, max=254, step=1 ]
+
+            Type switch : living         "Living Room"        [ commandTopic="edidio/living/set", stateTopic="edidio/living/state", on="ON", off="OFF" ]
+            Type dimmer : living_bri     "Living Brightness"  [ commandTopic="edidio/living/brightness/set", stateTopic="edidio/living/brightness", min=0, max=254, step=1 ]
+
+            // Scene — a switch that recalls the scene when turned ON.
+            Type switch : movie          "Movie Scene"        [ commandTopic="edidio/movie/set", on="ON", off="OFF" ]
+    }
+}

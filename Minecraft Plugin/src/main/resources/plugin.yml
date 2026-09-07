@@ -1,0 +1,15 @@
+name: eDIDIO
+version: 1.0.0
+main: au.com.creativelighting.edidio.EdidioPlugin
+api-version: "1.16"
+author: Creative Lighting
+description: Control eDIDIO architectural lighting from Minecraft events (via the eDIDIO REST API Gateway).
+commands:
+  edidio:
+    description: Control eDIDIO lighting
+    usage: /edidio scene <0-15> | level <addr> <0-254> | color <#RRGGBB>
+    permission: edidio.control
+permissions:
+  edidio.control:
+    description: Allows controlling eDIDIO lighting
+    default: op

@@ -1,0 +1,4 @@
+# Development/test dependencies ONLY. The driver itself is pure Lua with no
+# runtime dependencies (it uses ELAN g!'s Lua environment + comms interface).
+pytest>=7.0
+lupa>=2.0        # embedded Lua interpreter, to run the .lua encoder in tests

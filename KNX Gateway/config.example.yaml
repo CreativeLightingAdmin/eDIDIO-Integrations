@@ -1,0 +1,77 @@
+# eDIDIO KNX Gateway configuration.
+#
+# Copy to `config.yaml` and edit. This gateway connects to your KNX bus over
+# KNXnet/IP and translates KNX group-address telegrams into eDIDIO lighting
+# commands. No KNX certification is required — it's a standard KNXnet/IP client.
+
+# ---------------------------------------------------------------------------
+# How to reach the KNX bus.
+#   automatic   - discover a KNXnet/IP gateway on the network
+#   tunnelling  - connect to a specific KNXnet/IP router/interface (gateway_ip)
+#   routing     - KNXnet/IP multicast routing (224.0.23.12)
+# ---------------------------------------------------------------------------
+knx:
+  connection: tunnelling
+  gateway_ip: 192.168.1.100     # your KNXnet/IP router/interface (tunnelling)
+  gateway_port: 3671
+
+# ---------------------------------------------------------------------------
+# eDIDIO controller these group addresses drive.
+# ---------------------------------------------------------------------------
+controller:
+  host: 192.168.1.50
+  port: 23             # 23 = plain TCP, 443 = TLS
+  use_tls: false
+  timeout: 5.0
+
+# ---------------------------------------------------------------------------
+# Group-address map. Each KNX group address (assigned in ETS) maps to an eDIDIO
+# action. `dpt` tells the gateway how to read the telegram value:
+#
+#   dpt: switch        DPT 1.001 (on/off)
+#   dpt: scaling       DPT 5.001 (0-100% dimming) -> arc level 0-254
+#   dpt: scene_number  DPT 17.001 -> recall that scene. NOTE: DPT 17.001 is
+#                      1-based in ETS but 0-based on the wire, so ETS "scene 1"
+#                      recalls eDIDIO scene 0, ETS "scene 2" -> scene 1, etc.
+#                      (the gateway uses the raw wire value, 0-15).
+#
+# action + valid dpt:
+#   dali_level        line + dali_address   dpt: scaling | switch
+#   dali_group_level  line + group          dpt: scaling | switch
+#   dali_scene        line [+ group]        dpt: switch (needs fixed `scene`)
+#                                               | scene_number (scene from telegram)
+# ---------------------------------------------------------------------------
+group_addresses:
+  - ga: "1/1/1"
+    name: "Kitchen dimming"
+    action: dali_level
+    dpt: scaling
+    line: 1
+    dali_address: 5
+
+  - ga: "1/1/2"
+    name: "Kitchen on/off"
+    action: dali_level
+    dpt: switch
+    line: 1
+    dali_address: 5
+
+  - ga: "2/1/1"
+    name: "Living room group dim"
+    action: dali_group_level
+    dpt: scaling
+    line: 1
+    group: 0
+
+  - ga: "3/1/1"
+    name: "Movie scene (trigger)"
+    action: dali_scene
+    dpt: switch
+    line: 1
+    scene: 3
+
+  - ga: "3/2/1"
+    name: "Scene selector"
+    action: dali_scene
+    dpt: scene_number
+    line: 1

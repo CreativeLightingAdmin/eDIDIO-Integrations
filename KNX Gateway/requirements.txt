@@ -1,0 +1,7 @@
+# eDIDIO KNX Gateway dependencies.
+xknx>=3.0             # KNXnet/IP client (async)
+PyYAML>=6.0           # config parsing
+# Shared eDIDIO Python protocol engine (>=0.3.0 for group levels, scene recall).
+# Install locally in editable mode during development:
+#   pip install -e ../../edidio_control_py
+edidio_control_py>=0.4.0

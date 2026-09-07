@@ -1,0 +1,5 @@
+test/*.exe
+test/test_frames
+*.o
+*.mem
+.DS_Store

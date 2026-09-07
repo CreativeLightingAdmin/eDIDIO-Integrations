@@ -1,0 +1,23 @@
+{
+  "_comment": "eDIDIO OBS trigger map. Copy to triggers.json and edit. OBS events drive eDIDIO lighting actions. Actions: scene(line,scene), level(line,address,level), on/off(line,address), color(line,hex), spektra(zone,index), spektraStop(zone).",
+
+  "scenes": {
+    "_comment": "OBS scene NAME (exact) -> action when that scene becomes the program scene.",
+    "Starting Soon": { "action": "scene", "line": 1, "scene": 1 },
+    "Live": { "action": "color", "line": 2, "hex": "#0044FF" },
+    "BRB": { "action": "scene", "line": 1, "scene": 2 },
+    "Ending": { "action": "scene", "line": 1, "scene": 0 }
+  },
+
+  "stream": {
+    "_comment": "Stream start/stop.",
+    "onStart": { "action": "spektra", "zone": 1, "index": 0 },
+    "onStop": { "action": "spektraStop", "zone": 1 }
+  },
+
+  "record": {
+    "_comment": "Recording start/stop (e.g. a 'recording' indicator light).",
+    "onStart": { "action": "on", "line": 1, "address": 10 },
+    "onStop": { "action": "off", "line": 1, "address": 10 }
+  }
+}

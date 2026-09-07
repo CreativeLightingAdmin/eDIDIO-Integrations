@@ -1,0 +1,48 @@
+# eDIDIO HomeKit Bridge configuration.
+#
+# Copy to `config.yaml` and edit. Exposes eDIDIO lighting as native Apple
+# HomeKit accessories — pair once in the iOS Home app, then control with Siri
+# and the Home app. Runs locally; no cloud.
+
+# ---------------------------------------------------------------------------
+# HomeKit bridge identity + pairing.
+# ---------------------------------------------------------------------------
+homekit:
+  name: "eDIDIO"
+  pincode: "031-45-154"          # the code you enter when pairing (XXX-XX-XXX)
+  port: 51826
+  persist_file: edidio_homekit.state   # stores pairing; keep it (don't commit)
+
+# ---------------------------------------------------------------------------
+# eDIDIO controller these accessories drive.
+# ---------------------------------------------------------------------------
+controller:
+  host: 192.168.1.50
+  port: 23             # 23 = plain TCP, 443 = TLS
+  use_tls: false
+  timeout: 5.0
+
+# ---------------------------------------------------------------------------
+# Accessories exposed to HomeKit.
+#   type: light   -> HomeKit lightbulb (On + Brightness). Target a DALI address
+#                    OR a group. Brightness 0-100% maps to arc level 0-254.
+#   type: scene   -> HomeKit switch that recalls a stored scene (momentary).
+# ---------------------------------------------------------------------------
+accessories:
+  - id: kitchen
+    name: "Kitchen"
+    type: light
+    line: 1
+    address: 5
+
+  - id: living
+    name: "Living Room"
+    type: light
+    line: 1
+    group: 0
+
+  - id: movie
+    name: "Movie Scene"
+    type: scene
+    line: 1
+    scene: 3

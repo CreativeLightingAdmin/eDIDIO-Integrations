@@ -1,0 +1,5 @@
+name: "eDIDIO Lighting"
+packageKey: edidio-lighting
+permissions:
+  lan: {}
+description: "Control Freak eDIDIO DALI lighting control over LAN."

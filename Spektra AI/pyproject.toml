@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "edidio-spektra-ai"
+version = "0.1.0"
+description = "Spektra AI - MCP server for authoring/controlling Control Freak eDIDIO SpektraPlus lighting"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=2.0",
+    "edidio_control_py>=0.4.0",
+]
+
+[project.scripts]
+edidio-spektra-ai = "edidio_spektra_ai.__main__:main"
+
+[tool.setuptools]
+packages = ["edidio_spektra_ai"]

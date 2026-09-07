@@ -1,0 +1,47 @@
+# eDIDIO OSC Bridge config tuned for Unreal Engine.
+# Use with the "OSC Bridge" gateway:  python run.py --config edidio-osc.example.yaml
+# UE's OSC plugin sends to this bridge; each address triggers a lighting action.
+
+osc:
+  host: 0.0.0.0
+  port: 8000
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+addresses:
+  # A gameplay event dims a group (send a float 0.0-1.0).
+  - address: "/edidio/house/level"
+    action: dali_group_level
+    line: 1
+    group: 0
+
+  # Recall scenes for game states.
+  - address: "/edidio/scene/menu"
+    action: dali_scene
+    line: 1
+    scene: 1
+  - address: "/edidio/scene/play"
+    action: dali_scene
+    line: 1
+    scene: 2
+  - address: "/edidio/scene/gameover"
+    action: dali_scene
+    line: 1
+    scene: 0
+
+  # Colour wash for events (a bang / any value triggers).
+  - address: "/edidio/fx/red"
+    action: dali_scene
+    line: 1
+    scene: 5
+
+  # Start a SpektraPlus sequence for a big moment.
+  - address: "/edidio/fx/celebrate"
+    action: spektra
+    zone: 1
+    type: sequence
+    index: 0
+    spektra_action: start

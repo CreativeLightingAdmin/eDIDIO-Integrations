@@ -1,0 +1,64 @@
+# eDIDIO MQTT Bridge configuration.
+#
+# Copy to `config.yaml` and edit. The bridge subscribes to MQTT command topics
+# and translates them into eDIDIO lighting commands. With Home Assistant
+# discovery enabled, your entities appear in HA automatically — no HA YAML.
+
+# ---------------------------------------------------------------------------
+# MQTT broker to connect to (e.g. Mosquitto, or Home Assistant's broker).
+# ---------------------------------------------------------------------------
+mqtt:
+  host: 127.0.0.1
+  port: 1883
+  username: ""            # optional
+  password: ""            # optional
+  client_id: edidio-bridge
+  base_topic: edidio      # command/state topics live under this prefix
+  # Home Assistant MQTT discovery: publishes retained config so entities appear
+  # in HA automatically. discovery_prefix must match HA (default 'homeassistant').
+  discovery: true
+  discovery_prefix: homeassistant
+
+# ---------------------------------------------------------------------------
+# eDIDIO controller these entities drive.
+# ---------------------------------------------------------------------------
+controller:
+  id: edidio1            # used in HA device identifiers
+  host: 192.168.1.50
+  port: 23               # 23 = plain TCP, 443 = TLS
+  use_tls: false
+  timeout: 5.0
+
+# ---------------------------------------------------------------------------
+# Entities. Each becomes MQTT command topics and (if enabled) an HA entity.
+#
+#   type: light   -> HA light. Target a single DALI address OR a group.
+#                    Supports on/off + brightness (0-254).
+#   type: scene   -> HA scene (stateless trigger). Recalls a stored scene,
+#                    broadcast on the line or on a group.
+# ---------------------------------------------------------------------------
+entities:
+  - id: kitchen
+    name: "Kitchen"
+    type: light
+    line: 1
+    address: 5
+
+  - id: living
+    name: "Living Room"
+    type: light
+    line: 1
+    group: 0
+
+  - id: movie
+    name: "Movie Scene"
+    type: scene
+    line: 1
+    scene: 3
+
+  - id: welcome
+    name: "Welcome (group 4)"
+    type: scene
+    line: 1
+    group: 4
+    scene: 1

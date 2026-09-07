@@ -1,0 +1,60 @@
+# eDIDIO OSC Bridge configuration.
+#
+# Copy to `config.yaml` and edit. The bridge receives OSC messages (from QLab,
+# TouchDesigner, Resolume, TouchOSC, ETC consoles, etc.) and translates them into
+# eDIDIO lighting commands.
+
+# ---------------------------------------------------------------------------
+# OSC server this bridge listens on (UDP).
+# ---------------------------------------------------------------------------
+osc:
+  host: 0.0.0.0
+  port: 8000
+
+# ---------------------------------------------------------------------------
+# eDIDIO controller these addresses drive.
+# ---------------------------------------------------------------------------
+controller:
+  host: 192.168.1.50
+  port: 23             # 23 = plain TCP, 443 = TLS
+  use_tls: false
+  timeout: 5.0
+
+# ---------------------------------------------------------------------------
+# OSC address map. Each OSC address triggers an eDIDIO action.
+#
+#   action: dali_level        line + address_dali   (arg -> level)
+#   action: dali_group_level  line + group          (arg -> level)
+#   action: dali_scene        line + scene [+ group] (fires on arg > 0 / no arg)
+#   action: spektra           zone + type + index + spektra_action (fires on trigger)
+#   action: spektra_stop      zone                  (fires on trigger)
+#
+# Level args: a float 0.0-1.0 (typical OSC fader) maps to arc 0-254; an int is
+# used as a raw arc level 0-254.
+# ---------------------------------------------------------------------------
+addresses:
+  - address: "/edidio/kitchen/level"
+    action: dali_level
+    line: 1
+    address_dali: 5
+
+  - address: "/edidio/living/level"
+    action: dali_group_level
+    line: 1
+    group: 0
+
+  - address: "/edidio/scene/movie"
+    action: dali_scene
+    line: 1
+    scene: 3
+
+  - address: "/edidio/seq/start"
+    action: spektra
+    zone: 1
+    type: sequence
+    index: 0
+    spektra_action: start
+
+  - address: "/edidio/seq/stop"
+    action: spektra_stop
+    zone: 1

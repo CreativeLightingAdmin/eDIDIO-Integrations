@@ -1,0 +1,17 @@
+{
+  "name": "edidio-teams-app",
+  "version": "1.0.0",
+  "description": "Microsoft Teams outgoing-webhook app for controlling Control Freak eDIDIO lighting via the REST API Gateway.",
+  "main": "index.js",
+  "author": "Michael Howes",
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "dotenv": "^16.6.1"
+  }
+}

@@ -1,0 +1,23 @@
+# Shared image for the Python eDIDIO gateways (Modbus, MQTT, KNX, HomeKit, OSC).
+#
+# Build context is the repo root so the gateway source is available. Select the
+# gateway with the GATEWAY build arg, e.g.:
+#   docker build -f Docker/Dockerfile.python --build-arg "GATEWAY=MQTT Bridge" -t edidio-mqtt .
+#
+# The shared engine (edidio_control_py) is installed from PyPI via each gateway's
+# requirements.txt.
+
+FROM python:3.12-slim
+
+ARG GATEWAY
+WORKDIR /app
+
+# Install the gateway's requirements (which include edidio_control_py from PyPI).
+COPY ["${GATEWAY}/requirements.txt", "/app/requirements.txt"]
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Gateway source.
+COPY ["${GATEWAY}/", "/app/"]
+
+# Config is mounted at /config/config.yaml (see docker-compose.yml).
+CMD ["python", "run.py", "--config", "/config/config.yaml"]

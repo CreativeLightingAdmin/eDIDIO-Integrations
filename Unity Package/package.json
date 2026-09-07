@@ -1,0 +1,20 @@
+{
+  "name": "au.com.creativelighting.edidio",
+  "version": "1.0.0",
+  "displayName": "eDIDIO Lighting Control",
+  "description": "Control Freak eDIDIO lighting control (DALI, DMX, SpektraPlus) from Unity over TCP — for games, VR/AR, installations and virtual production.",
+  "unity": "2020.3",
+  "keywords": ["lighting", "dali", "dmx", "edidio", "control"],
+  "author": {
+    "name": "Creative Lighting",
+    "url": "https://creativelighting.com.au"
+  },
+  "license": "MIT",
+  "samples": [
+    {
+      "displayName": "Basic Control",
+      "description": "A MonoBehaviour that connects and drives lights from key presses.",
+      "path": "Samples~/BasicControl"
+    }
+  ]
+}

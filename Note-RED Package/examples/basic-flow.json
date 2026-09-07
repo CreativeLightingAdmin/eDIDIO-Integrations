@@ -1,0 +1,143 @@
+[
+	{
+		"id": "edidio_example_tab",
+		"type": "tab",
+		"label": "eDIDIO example",
+		"disabled": false,
+		"info": "Basic eDIDIO control examples. Edit the controller config node with your controller's IP first."
+	},
+	{
+		"id": "edidio_ctrl",
+		"type": "edidio-controller",
+		"name": "My eDIDIO",
+		"host": "192.168.1.50",
+		"port": "",
+		"useTLS": false,
+		"heartbeatMs": 7000
+	},
+	{
+		"id": "inj_on",
+		"type": "inject",
+		"z": "edidio_example_tab",
+		"name": "Light 5 → 100%",
+		"props": [{ "p": "payload" }],
+		"payload": "{}",
+		"payloadType": "json",
+		"x": 160,
+		"y": 80,
+		"wires": [["dali_level"]]
+	},
+	{
+		"id": "dali_level",
+		"type": "edidio-dali",
+		"z": "edidio_example_tab",
+		"name": "",
+		"controller": "edidio_ctrl",
+		"action": "level",
+		"line": 1,
+		"address": 5,
+		"level": 254,
+		"x": 400,
+		"y": 80,
+		"wires": [["dbg"]]
+	},
+	{
+		"id": "inj_payload",
+		"type": "inject",
+		"z": "edidio_example_tab",
+		"name": "Dynamic: {address:9, level:128}",
+		"props": [{ "p": "payload" }],
+		"payload": "{\"address\":9,\"level\":128}",
+		"payloadType": "json",
+		"x": 200,
+		"y": 140,
+		"wires": [["dali_level"]]
+	},
+	{
+		"id": "inj_scene",
+		"type": "inject",
+		"z": "edidio_example_tab",
+		"name": "Recall scene 3",
+		"props": [{ "p": "payload" }],
+		"payload": "{}",
+		"payloadType": "json",
+		"x": 160,
+		"y": 200,
+		"wires": [["dali_scene"]]
+	},
+	{
+		"id": "dali_scene",
+		"type": "edidio-dali",
+		"z": "edidio_example_tab",
+		"name": "",
+		"controller": "edidio_ctrl",
+		"action": "scene",
+		"line": 1,
+		"scene": 3,
+		"x": 400,
+		"y": 200,
+		"wires": [["dbg"]]
+	},
+	{
+		"id": "inj_color",
+		"type": "inject",
+		"z": "edidio_example_tab",
+		"name": "DMX line 2 → red",
+		"props": [{ "p": "payload" }],
+		"payload": "{\"hex\":\"#FF0000\"}",
+		"payloadType": "json",
+		"x": 170,
+		"y": 260,
+		"wires": [["dmx_color"]]
+	},
+	{
+		"id": "dmx_color",
+		"type": "edidio-dmx",
+		"z": "edidio_example_tab",
+		"name": "",
+		"controller": "edidio_ctrl",
+		"action": "color",
+		"line": 2,
+		"hex": "#FF0000",
+		"x": 400,
+		"y": 260,
+		"wires": [["dbg"]]
+	},
+	{
+		"id": "inj_seq",
+		"type": "inject",
+		"z": "edidio_example_tab",
+		"name": "Start sequence 0 on zone 1",
+		"props": [{ "p": "payload" }],
+		"payload": "{}",
+		"payloadType": "json",
+		"x": 190,
+		"y": 320,
+		"wires": [["spektra"]]
+	},
+	{
+		"id": "spektra",
+		"type": "edidio-spektra",
+		"z": "edidio_example_tab",
+		"name": "",
+		"controller": "edidio_ctrl",
+		"target": "sequence",
+		"zone": 1,
+		"index": 0,
+		"action": "start",
+		"x": 410,
+		"y": 320,
+		"wires": [["dbg"]]
+	},
+	{
+		"id": "dbg",
+		"type": "debug",
+		"z": "edidio_example_tab",
+		"name": "result",
+		"active": true,
+		"complete": "payload",
+		"x": 610,
+		"y": 200,
+		"wires": []
+	}
+]

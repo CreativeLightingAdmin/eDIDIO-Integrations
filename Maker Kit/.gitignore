@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+config.yaml
+*.log
+.DS_Store
+# host-compiled C++ test artifacts
+arduino/_test/*.exe
+arduino/_test/test_frames

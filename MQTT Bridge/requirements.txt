@@ -1,0 +1,7 @@
+# eDIDIO MQTT Bridge dependencies.
+paho-mqtt>=2.0        # MQTT client (v2 callback API)
+PyYAML>=6.0           # config parsing
+# Shared eDIDIO Python protocol engine (>=0.3.0 for group levels, scene recall,
+# Spektra control). Install locally in editable mode during development:
+#   pip install -e ../../edidio_control_py
+edidio_control_py>=0.4.0

@@ -1,0 +1,15 @@
+# eDIDIO Modbus TCP/RTU Gateway dependencies.
+#
+# pymodbus is pinned to a 3.8.x release: it exposes the stable classic datastore
+# API (ModbusSlaveContext + ModbusSequentialDataBlock with an overridable
+# setValues hook). pymodbus 3.15+ deprecated that model in favour of an in-flux
+# SimData/SimDevice API, so we pin until that stabilises.
+pymodbus==3.8.6
+
+# Config file parsing.
+PyYAML>=6.0
+
+# The shared eDIDIO Python protocol engine (>=0.3.0 adds group levels, scene
+# recall and Spektra control used by this gateway). Install locally in editable
+# mode during development: `pip install -e ../../edidio_control_py`.
+edidio_control_py>=0.4.0

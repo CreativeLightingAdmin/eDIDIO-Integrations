@@ -1,0 +1,5 @@
+node_modules/
+.env
+src/triggers.json
+*.log
+.DS_Store

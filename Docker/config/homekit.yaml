@@ -1,0 +1,29 @@
+# HomeKit bridge config for Docker. persist_file lives on the mounted /data
+# volume so pairing survives container rebuilds.
+homekit:
+  name: "eDIDIO"
+  pincode: "031-45-154"
+  port: 51826
+  persist_file: /data/edidio_homekit.state
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+accessories:
+  - id: kitchen
+    name: "Kitchen"
+    type: light
+    line: 1
+    address: 5
+  - id: living
+    name: "Living Room"
+    type: light
+    line: 1
+    group: 0
+  - id: movie
+    name: "Movie Scene"
+    type: scene
+    line: 1
+    scene: 3

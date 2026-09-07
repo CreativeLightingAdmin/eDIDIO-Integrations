@@ -1,0 +1,36 @@
+# eDIDIO GTA V bridge config. Copy to config.yaml and edit.
+
+server:
+  host: 127.0.0.1     # the mod POSTs here
+  port: 3002
+  token: ""           # optional shared secret (mod includes it as "token")
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+gta5:
+  # Wanted level (stars) -> police siren actions. 0 clears; 1-5 escalate.
+  # Tip: point tiers at a SpektraPlus SEQUENCE that alternates red/blue for a
+  # proper strobing police wash.
+  wanted:
+    enabled: true
+    actions:
+      0: { kind: dali_scene, line: 1, scene: 1 }                              # all clear
+      1: { kind: spektra, type: sequence, zone: 1, index: 0, action: start }  # slow red/blue
+      2: { kind: spektra, type: sequence, zone: 1, index: 0, action: start }
+      3: { kind: spektra, type: sequence, zone: 1, index: 1, action: start }  # faster
+      4: { kind: spektra, type: sequence, zone: 1, index: 1, action: start }
+      5: { kind: spektra, type: sequence, zone: 1, index: 2, action: start }  # frenzy
+
+  # Health -> room colour when you're NOT wanted (green full, red low).
+  health:
+    enabled: true
+    line: 2
+    colors: ["#FF0000", "#FFC000", "#00FF00"]
+
+  # One-shot moments.
+  events:
+    wasted: { kind: dmx_color, line: 2, rgb: [255, 0, 0] }
+    busted: { kind: dmx_color, line: 2, rgb: [0, 0, 255] }

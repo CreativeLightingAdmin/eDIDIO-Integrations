@@ -1,0 +1,32 @@
+# Rocket Launch Tracker — an ignition light sequence as a launch counts down.
+#
+# The countdown source polls an upcoming-launch API for the launch time (ISO)
+# and emits an "intensity" that climbs through the final window. A threshold
+# escalates the lighting: T-2min hold amber, T-10s ignition sequence, T-0 blast.
+#
+# This uses The Space Devs' free "Launch Library 2" API (next launch's `net`).
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+source:
+  type: countdown
+  name: "Next launch"
+  url: "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=1&hide_recent_previous=true"
+  json_path: "results.0.net"      # ISO launch time of the next launch
+  window_s: 120                   # start reacting 2 minutes out
+  interval: 30
+
+mapping:
+  type: threshold
+  bands:
+    - min: 0            # outside the window -> standby
+      action: { kind: dali_scene, line: 1, scene: 1 }
+    - min: 60           # inside ~T-60s -> amber hold
+      action: { kind: dmx_color, line: 2, rgb: [255, 150, 0] }
+    - min: 110          # T-10s -> ignition sequence
+      action: { kind: spektra, type: sequence, zone: 1, index: 0, action: start }
+
+min_interval: 1

@@ -1,0 +1,91 @@
+<script type="text/javascript">
+	RED.nodes.registerType('edidio-dmx', {
+		category: 'eDIDIO',
+		color: '#87CEEB',
+		defaults: {
+			name: { value: '' },
+			controller: { value: '', type: 'edidio-controller', required: true },
+			action: { value: 'color' },
+			line: { value: 2, validate: RED.validators.number() },
+			hex: { value: '#FF0000' },
+			fixtures: { value: '' },
+			levels: { value: '' },
+			channel: { value: 1 },
+			repeat: { value: 1 },
+			zone: { value: '' },
+			fadeMs: { value: 0 },
+		},
+		inputs: 1,
+		outputs: 1,
+		icon: 'light.svg',
+		label: function () {
+			return this.name || 'DMX ' + (this.action || 'color');
+		},
+		oneditprepare: function () {
+			const toggle = () => {
+				const a = $('#node-input-action').val();
+				$('.edidio-color').toggle(a === 'color');
+				$('.edidio-raw').toggle(a === 'level');
+			};
+			$('#node-input-action').on('change', toggle);
+			toggle();
+		},
+	});
+</script>
+
+<script type="text/html" data-template-name="edidio-dmx">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Optional name" />
+	</div>
+	<div class="form-row">
+		<label for="node-input-controller"><i class="fa fa-server"></i> Controller</label>
+		<input type="text" id="node-input-controller" />
+	</div>
+	<div class="form-row">
+		<label for="node-input-action"><i class="fa fa-bolt"></i> Action</label>
+		<select id="node-input-action">
+			<option value="color">RGB colour</option>
+			<option value="level">Raw channel levels</option>
+		</select>
+	</div>
+	<div class="form-row">
+		<label for="node-input-line"><i class="fa fa-sitemap"></i> Line</label>
+		<input type="text" id="node-input-line" placeholder="1-4" />
+	</div>
+	<div class="form-row edidio-color">
+		<label for="node-input-hex"><i class="fa fa-paint-brush"></i> Colour</label>
+		<input type="text" id="node-input-hex" placeholder="#RRGGBB" />
+	</div>
+	<div class="form-row edidio-color">
+		<label for="node-input-fixtures"><i class="fa fa-th"></i> Fixtures</label>
+		<input type="text" id="node-input-fixtures" placeholder="blank = fill universe" />
+	</div>
+	<div class="form-row edidio-raw">
+		<label for="node-input-levels"><i class="fa fa-list-ol"></i> Levels</label>
+		<input type="text" id="node-input-levels" placeholder="comma-separated 0-255, e.g. 255,0,0" />
+	</div>
+	<div class="form-row edidio-raw">
+		<label for="node-input-channel"><i class="fa fa-hashtag"></i> Channel</label>
+		<input type="text" id="node-input-channel" placeholder="1" />
+	</div>
+	<div class="form-row edidio-raw">
+		<label for="node-input-repeat"><i class="fa fa-repeat"></i> Repeat</label>
+		<input type="text" id="node-input-repeat" placeholder="1" />
+	</div>
+	<div class="form-row">
+		<label for="node-input-fadeMs"><i class="fa fa-clock-o"></i> Fade</label>
+		<input type="text" id="node-input-fadeMs" placeholder="0" /> <span>ms</span>
+	</div>
+</script>
+
+<script type="text/html" data-help-name="edidio-dmx">
+	<p>Send DMX to an eDIDIO controller.</p>
+	<p>Configured fields are defaults; matching <code>msg.payload</code> fields override them.</p>
+	<h3>Actions</h3>
+	<ul>
+		<li><b>RGB colour</b> — paint <code>hex</code> (#RRGGBB) across <code>fixtures</code> RGB fixtures (blank = fill the universe).</li>
+		<li><b>Raw channel levels</b> — write <code>levels</code> (array or comma-separated 0-255) from <code>channel</code>, tiled <code>repeat</code> times.</li>
+	</ul>
+	<p><b>Line</b> is the physical daughter-board slot (1-4). <b>Fade</b> is in milliseconds.</p>
+</script>

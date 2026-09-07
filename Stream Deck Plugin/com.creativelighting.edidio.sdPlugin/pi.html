@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>eDIDIO settings</title>
+		<style>
+			body { font-family: sans-serif; font-size: 12px; margin: 8px; color: #ddd; background: #2d2d2d; }
+			.row { display: flex; align-items: center; margin: 6px 0; }
+			.row label { width: 90px; }
+			.row input, .row select { flex: 1; padding: 3px; background: #3d3d3d; color: #ddd; border: 1px solid #555; }
+			.hidden { display: none; }
+			h4 { margin: 8px 0 4px; color: #9cf; }
+		</style>
+	</head>
+	<body>
+		<h4>Gateway</h4>
+		<div class="row"><label>Gateway URL</label><input id="gatewayUrl" placeholder="http://localhost:8080" /></div>
+		<div class="row"><label>API key</label><input id="apiKey" placeholder="(optional)" /></div>
+		<div class="row"><label>Controller IP</label><input id="controller" placeholder="(optional; else gateway default)" /></div>
+
+		<h4>Command</h4>
+		<div class="row">
+			<label>Command</label>
+			<select id="command">
+				<option value="scene">Recall scene</option>
+				<option value="level">Set level (address)</option>
+				<option value="group_level">Set level (group)</option>
+				<option value="on">Light on</option>
+				<option value="off">Light off</option>
+				<option value="dmx_color">DMX colour</option>
+				<option value="spektra">SpektraPlus</option>
+			</select>
+		</div>
+		<div class="row f-line"><label>Line (1-4)</label><input id="line" type="number" value="1" /></div>
+		<div class="row f-address"><label>Address</label><input id="address" type="number" value="0" /></div>
+		<div class="row f-group"><label>Group</label><input id="group" placeholder="0-15 (blank = broadcast)" /></div>
+		<div class="row f-scene"><label>Scene</label><input id="scene" type="number" value="0" /></div>
+		<div class="row f-level"><label>Level (0-254)</label><input id="level" type="number" value="254" /></div>
+		<div class="row f-hex"><label>Colour</label><input id="hex" value="#FF0000" /></div>
+		<div class="row f-zone"><label>Zone</label><input id="zone" type="number" value="0" /></div>
+		<div class="row f-type"><label>Type</label><select id="type"><option>sequence</option><option>theme</option><option>static</option></select></div>
+		<div class="row f-index"><label>Index</label><input id="index" type="number" value="0" /></div>
+		<div class="row f-action"><label>Action</label><select id="action"><option>start</option><option>stop</option><option>pause</option></select></div>
+
+		<script src="pi.js"></script>
+	</body>
+</html>

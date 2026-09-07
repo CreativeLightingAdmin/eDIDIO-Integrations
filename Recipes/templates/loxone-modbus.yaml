@@ -1,0 +1,42 @@
+# eDIDIO Modbus Gateway config tuned for Loxone.
+# Use with the "Modbus TCPRTUGateway" gateway:  python run.py --config loxone-modbus.yaml
+# In Loxone Config, add a Modbus Server at this gateway's IP/port, unit 1, and
+# Modbus Actuators for the registers below (holding registers, 16-bit).
+
+server:
+  type: tcp
+  host: 0.0.0.0
+  port: 5020          # Loxone Modbus Server target port (502 needs admin)
+  unit_id: 1
+
+controller:
+  host: 192.168.1.50  # your eDIDIO
+  port: 23
+  use_tls: false
+
+registers:
+  # 40001 — Zone brightness (write 0-254). Wire to a Loxone dimmer output.
+  - register: 1
+    name: "Zone 1 brightness"
+    action: dali_group_level
+    line: 1
+    group: 0
+
+  # 40002 — Scene recall (write scene number 0-15).
+  - register: 2
+    name: "Scene recall (line 1)"
+    action: dali_scene
+    line: 1
+
+  # 40003 — Corridor on/off (write 0 = off, >0 = on). Wire to a Loxone switch.
+  - register: 3
+    name: "Corridor on/off"
+    action: dali_group_onoff
+    line: 1
+    group: 2
+
+  # 40010 — Feature-wall sequence (write 0 = stop, N = start sequence N-1).
+  - register: 10
+    name: "Feature wall sequence"
+    action: spektra_sequence
+    zone: 1

@@ -1,0 +1,34 @@
+# eDIDIO Dota 2 GSI bridge config. Copy to config.yaml and edit.
+
+server:
+  host: 127.0.0.1     # must match the uri in gamestate_integration_edidio.cfg
+  port: 3001
+  token: ""           # match the cfg's auth token (optional)
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+dota2:
+  # Room colour tracks your hero's health (100% -> green, 0% -> red).
+  health:
+    enabled: true
+    line: 2
+    colors: ["#FF0000", "#FFC000", "#00FF00"]
+
+  # Fired once when your hero dies.
+  death:
+    enabled: true
+    action: { kind: dmx_color, line: 2, rgb: [255, 0, 0] }
+
+  # Fired once when your hero respawns.
+  respawn:
+    enabled: true
+    action: { kind: dmx_color, line: 2, rgb: [0, 255, 0] }
+
+  # Optional day/night ambience (Dota's in-game day/night cycle).
+  daynight:
+    enabled: false
+    day_action: { kind: dali_scene, line: 1, scene: 1 }
+    night_action: { kind: dali_scene, line: 1, scene: 2 }

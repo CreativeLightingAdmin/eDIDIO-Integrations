@@ -1,0 +1,27 @@
+# Grafana / Prometheus Alertmanager -> lighting (webhook, push model).
+#
+# The webhook source listens for POSTs. Point a Grafana contact point (webhook)
+# or Alertmanager receiver at http://<this-host>:8100/ . Grafana's payload has a
+# top-level "status": "firing" | "resolved" — an event mapping turns that into a
+# red alert (firing) or clear (resolved).
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+source:
+  type: webhook
+  name: "Grafana alerts"
+  host: 0.0.0.0
+  port: 8100
+  label_path: "status"     # Grafana/Alertmanager: "firing" or "resolved"
+  token: ""                # optional: require ?token=... or X-Token header
+
+mapping:
+  type: event
+  events:
+    firing:   { kind: dmx_color, line: 2, rgb: [255, 0, 0] }   # red alert
+    resolved: { kind: dali_scene, line: 1, scene: 1 }          # back to normal
+
+min_interval: 0.2

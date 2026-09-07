@@ -1,0 +1,7 @@
+{
+  "name": "edidio-raycast-alfred",
+  "version": "1.0.0",
+  "description": "Raycast / Alfred launcher commands for controlling Control Freak eDIDIO lighting via the REST API Gateway.",
+  "license": "MIT",
+  "scripts": { "test": "node --test" }
+}

@@ -1,0 +1,6 @@
+# eDIDIO KSP bridge dependencies.
+PyYAML>=6.0
+krpc>=0.4         # kRPC client (live link; needs the kRPC mod in KSP)
+# Shared eDIDIO Python protocol engine (>=0.3.0). Install locally in dev:
+#   pip install -e ../../edidio_control_py
+edidio_control_py>=0.4.0

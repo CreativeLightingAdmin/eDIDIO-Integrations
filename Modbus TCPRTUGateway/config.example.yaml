@@ -1,0 +1,80 @@
+# eDIDIO Modbus TCP/RTU Gateway configuration.
+#
+# Copy to `config.yaml` and edit. A BMS/PLC writes Modbus holding registers on
+# this gateway; each mapped register triggers an eDIDIO lighting command.
+
+# ---------------------------------------------------------------------------
+# Modbus server that this gateway exposes to the BMS/PLC.
+# ---------------------------------------------------------------------------
+server:
+  type: tcp          # tcp | rtu
+  host: 0.0.0.0      # (tcp) bind address
+  port: 5020         # (tcp) listen port. Standard Modbus is 502 (needs admin/root).
+  unit_id: 1         # Modbus unit/slave id this gateway answers to
+  # For RTU (type: rtu) use these instead of host/port:
+  # port: COM3       # serial device, e.g. COM3 (Windows) or /dev/ttyUSB0 (Linux)
+  # baudrate: 9600
+  # parity: N        # N | E | O
+  # stopbits: 1
+  # bytesize: 8
+
+# ---------------------------------------------------------------------------
+# eDIDIO controller these registers drive.
+# ---------------------------------------------------------------------------
+controller:
+  host: 192.168.1.50
+  port: 23           # 23 = plain TCP, 443 = TLS
+  use_tls: false
+  timeout: 5.0
+
+# ---------------------------------------------------------------------------
+# Register map. `register` is the 1-based holding register number, so
+#   register: 1  ==  Modbus holding register 40001  ==  PDU address 0.
+#
+# The value a client WRITES to the register is the command parameter. Its
+# meaning depends on `action`:
+#
+#   dali_level        line + address     value = arc level 0-254
+#   dali_group_level  line + group       value = arc level 0-254
+#   dali_onoff        line + address     value 0 = off, >0 = on (max level)
+#   dali_group_onoff  line + group       value 0 = off, >0 = on (max level)
+#   dali_scene        line [+ group]     value = scene 0-15 (broadcast, or on group)
+#   dali_command      line + address     value = raw DALI command code (0-255)
+#   spektra_sequence  zone               value 0 = stop, N = start sequence index N-1
+#   spektra_theme     zone               value 0 = stop, N = start theme index N-1
+#   spektra_static    zone               value 0 = stop, N = start static index N-1
+# ---------------------------------------------------------------------------
+registers:
+  - register: 1
+    name: "Zone 1 (group 0) level"
+    action: dali_group_level
+    line: 1
+    group: 0
+
+  - register: 2
+    name: "Recall scene on line 1"
+    action: dali_scene
+    line: 1
+
+  - register: 3
+    name: "Meeting room downlight (addr 5)"
+    action: dali_level
+    line: 1
+    address: 5
+
+  - register: 4
+    name: "Corridor on/off (group 2)"
+    action: dali_group_onoff
+    line: 1
+    group: 2
+
+  - register: 10
+    name: "Feature wall sequence (zone 1)"
+    action: spektra_sequence
+    zone: 1
+
+  - register: 11
+    name: "Recall scene 3 on group 4"
+    action: dali_scene
+    line: 1
+    group: 4

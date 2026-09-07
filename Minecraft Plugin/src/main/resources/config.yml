@@ -1,0 +1,20 @@
+# eDIDIO Minecraft plugin config.
+
+# The eDIDIO REST API Gateway to call (run it separately; see ../Rest API Gateway).
+gatewayUrl: "http://192.168.1.100:8080"
+apiKey: ""                 # X-API-Key if the gateway is secured
+controller: "192.168.1.50" # controller IP (if the gateway has no default)
+
+# Which line/zone the events drive.
+mapping:
+  line: 1        # DALI line for scenes/levels
+  dmxLine: 2     # DMX line for colour
+
+# In-game events -> lighting (toggle each).
+events:
+  join: true
+  joinScene: 1     # scene recalled when a player joins
+  death: true      # red flash on player death
+  weather: true
+  stormScene: 3    # scene when a storm starts
+  clearScene: 1    # scene when weather clears

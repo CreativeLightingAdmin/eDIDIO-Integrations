@@ -1,0 +1,47 @@
+# eDIDIO Raspberry Pi GPIO bridge config. Copy to config.yaml and edit.
+# Wire buttons/switches/sensors to BCM GPIO pins; each press fires an action.
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+# Each pin binds a GPIO (BCM numbering) to an action, fired when the input goes
+# active (button press). pull_up: true suits a button to ground (default).
+#
+#   action: scene         line + scene
+#   action: on / off      line + address
+#   action: group_level   line + group + level
+#   action: spektra       zone + index
+pins:
+  - pin: 17
+    name: "Entry button -> scene 1"
+    action: scene
+    line: 1
+    scene: 1
+
+  - pin: 27
+    name: "Off button -> scene 0"
+    action: scene
+    line: 1
+    scene: 0
+
+  - pin: 22
+    name: "Desk light on"
+    action: "on"          # quote it — bare `on` is YAML boolean true
+    line: 1
+    address: 5
+
+  - pin: 23
+    name: "Motion -> corridor group full"
+    action: group_level
+    line: 1
+    group: 2
+    level: 254
+    pull_up: false        # a PIR sensor drives the pin high
+
+  - pin: 24
+    name: "Party button -> sequence"
+    action: spektra
+    zone: 1
+    index: 0

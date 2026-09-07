@@ -1,0 +1,36 @@
+# eDIDIO CS2 GSI bridge config. Copy to config.yaml and edit.
+
+server:
+  host: 127.0.0.1     # must match the uri in gamestate_integration_edidio.cfg
+  port: 3000
+  token: ""           # set to match the cfg's auth token (optional)
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+cs2:
+  # Room colour tracks your health (100% -> green, 0% -> red).
+  health:
+    enabled: true
+    line: 2                       # DMX line to paint
+    colors: ["#FF0000", "#FFC000", "#00FF00"]
+
+  # A blinding white flash when a flashbang blinds you (flashed amount 0-255).
+  flash:
+    enabled: true
+    line: 2
+    threshold: 100
+    color: "#FFFFFF"
+
+  # Red alert when the bomb is planted (fires once on plant).
+  bomb:
+    enabled: true
+    action: { kind: dmx_color, line: 2, rgb: [255, 0, 0] }
+    # or recall a scene: { kind: dali_scene, line: 1, scene: 5 }
+
+  # Optional: do something when you die.
+  death:
+    enabled: false
+    action: { kind: dali_scene, line: 1, scene: 0 }

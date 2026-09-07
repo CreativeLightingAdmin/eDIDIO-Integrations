@@ -1,0 +1,66 @@
+{
+  "_comment": "eDIDIO Twitch bot command map. Copy to commands.json and edit. Chat commands, channel-point reward redemptions, and bit cheers each map to an eDIDIO lighting action. 'permission' gates chat commands: everyone | subscriber | vip | moderator | broadcaster.",
+
+  "chat": {
+    "prefix": "!",
+    "commands": {
+      "scene": {
+        "help": "!scene <0-15> — recall a lighting scene",
+        "permission": "everyone",
+        "action": "scene",
+        "line": 1,
+        "argFrom": "scene"
+      },
+      "light": {
+        "help": "!light <address> <level 0-254> — set a light",
+        "permission": "subscriber",
+        "action": "level",
+        "line": 1,
+        "argFrom": ["address", "level"]
+      },
+      "on": {
+        "help": "!on <address> — turn a light on",
+        "permission": "subscriber",
+        "action": "on",
+        "line": 1,
+        "argFrom": "address"
+      },
+      "off": {
+        "help": "!off <address> — turn a light off",
+        "permission": "subscriber",
+        "action": "off",
+        "line": 1,
+        "argFrom": "address"
+      },
+      "color": {
+        "help": "!color <#RRGGBB> — set a DMX colour",
+        "permission": "moderator",
+        "action": "color",
+        "line": 2,
+        "argFrom": "hex"
+      },
+      "seq": {
+        "help": "!seq <index> — start a SpektraPlus sequence on zone 1",
+        "permission": "moderator",
+        "action": "spektra",
+        "zone": 1,
+        "argFrom": "index"
+      }
+    }
+  },
+
+  "rewards": {
+    "_comment": "Channel-point reward TITLE (exact match) -> action.",
+    "Party Mode": { "action": "spektra", "zone": 1, "index": 0 },
+    "Red Alert": { "action": "color", "line": 2, "hex": "#FF0000" },
+    "Lights Out": { "action": "scene", "line": 1, "scene": 0 }
+  },
+
+  "bits": {
+    "_comment": "Bit cheer thresholds (>=) -> action. Highest matching tier wins.",
+    "tiers": [
+      { "min": 100, "action": "color", "line": 2, "hex": "#FFD000" },
+      { "min": 1000, "action": "spektra", "zone": 1, "index": 1 }
+    ]
+  }
+}

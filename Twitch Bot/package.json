@@ -1,0 +1,20 @@
+{
+  "name": "edidio-twitch-bot",
+  "version": "1.0.0",
+  "description": "Twitch bot for controlling Control Freak eDIDIO lighting from chat commands, channel-point redemptions and bit cheers.",
+  "main": "index.js",
+  "author": "Michael Howes",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "google-protobuf": "^3.7.1",
+    "tmi.js": "^1.8.5",
+    "dotenv": "^16.6.1"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "edidio-obs-integration",
+  "version": "1.0.0",
+  "description": "Drive Control Freak eDIDIO lighting from OBS Studio events (scene switches, stream/record start-stop) via OBS WebSocket.",
+  "main": "index.js",
+  "author": "Michael Howes",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "google-protobuf": "^3.7.1",
+    "obs-websocket-js": "^5.0.6",
+    "dotenv": "^16.6.1"
+  }
+}

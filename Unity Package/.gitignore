@@ -1,0 +1,6 @@
+# dotnet test build output (the encoder tests)
+_test/bin/
+_test/obj/
+# Unity meta/library noise if opened in-editor
+*.csproj.user
+.vs/

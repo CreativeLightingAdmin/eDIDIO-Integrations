@@ -1,0 +1,66 @@
+# eDIDIO MIDI Bridge configuration.
+#
+# Copy to `config.yaml` and edit. The bridge listens on a MIDI input port and
+# maps notes / control-changes / program-changes to eDIDIO lighting actions —
+# for Launchpads, APCs, fader banks, keyboards, DAWs, etc.
+
+# ---------------------------------------------------------------------------
+# MIDI input. Leave `port` blank to have the runner list ports and use the first
+# (or pass --port on the command line). Use a substring of the port name.
+# ---------------------------------------------------------------------------
+midi:
+  port:            # e.g. "Launchpad" or "loopMIDI Port"
+
+# ---------------------------------------------------------------------------
+# eDIDIO controller these bindings drive.
+# ---------------------------------------------------------------------------
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+# ---------------------------------------------------------------------------
+# Bindings. `event` is note:<channel>:<note> | cc:<channel>:<control> |
+# pc:<channel>:<program>  (channel 0-15).
+#
+#   action: dali_level        line + address   (note velocity / CC value -> level)
+#   action: dali_group_level  line + group     (velocity / value -> level)
+#   action: dali_scene        line + scene [+ group]  (fires on note-on / value>0)
+#   action: spektra           zone + index      (fires on trigger)
+#   action: spektra_stop      zone              (fires on trigger)
+# ---------------------------------------------------------------------------
+bindings:
+  # A pad (note 60 on channel 0) recalls scene 3.
+  - event: "note:0:60"
+    name: "Pad 1 -> scene 3"
+    action: dali_scene
+    line: 1
+    scene: 3
+
+  # A pad recalls scene 0 (blackout).
+  - event: "note:0:61"
+    name: "Pad 2 -> blackout"
+    action: dali_scene
+    line: 1
+    scene: 0
+
+  # A fader (CC 7 on channel 0) dims group 0.
+  - event: "cc:0:7"
+    name: "Fader 1 -> group 0 level"
+    action: dali_group_level
+    line: 1
+    group: 0
+
+  # A fader (CC 8) sets a single light.
+  - event: "cc:0:8"
+    name: "Fader 2 -> address 5 level"
+    action: dali_level
+    line: 1
+    address: 5
+
+  # A pad starts a SpektraPlus sequence.
+  - event: "note:0:62"
+    name: "Pad 3 -> sequence 0"
+    action: spektra
+    zone: 1
+    index: 0

@@ -1,0 +1,75 @@
+<script type="text/javascript">
+	RED.nodes.registerType('edidio-spektra', {
+		category: 'eDIDIO',
+		color: '#87CEEB',
+		defaults: {
+			name: { value: '' },
+			controller: { value: '', type: 'edidio-controller', required: true },
+			target: { value: 'sequence' },
+			zone: { value: 0 },
+			index: { value: 0 },
+			action: { value: 'start' },
+		},
+		inputs: 1,
+		outputs: 1,
+		icon: 'light.svg',
+		label: function () {
+			return this.name || 'Spektra ' + (this.target || '');
+		},
+		oneditprepare: function () {
+			const toggle = () => {
+				const a = $('#node-input-action').val();
+				// stop_off ignores type/index.
+				$('.edidio-typeidx').toggle(a !== 'stop_off');
+			};
+			$('#node-input-action').on('change', toggle);
+			toggle();
+		},
+	});
+</script>
+
+<script type="text/html" data-template-name="edidio-spektra">
+	<div class="form-row">
+		<label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+		<input type="text" id="node-input-name" placeholder="Optional name" />
+	</div>
+	<div class="form-row">
+		<label for="node-input-controller"><i class="fa fa-server"></i> Controller</label>
+		<input type="text" id="node-input-controller" />
+	</div>
+	<div class="form-row">
+		<label for="node-input-action"><i class="fa fa-bolt"></i> Action</label>
+		<select id="node-input-action">
+			<option value="start">Start</option>
+			<option value="stop">Stop</option>
+			<option value="pause">Pause</option>
+			<option value="stop_off">Stop &amp; turn off</option>
+		</select>
+	</div>
+	<div class="form-row">
+		<label for="node-input-zone"><i class="fa fa-map-marker"></i> Zone</label>
+		<input type="text" id="node-input-zone" placeholder="0" />
+	</div>
+	<div class="form-row edidio-typeidx">
+		<label for="node-input-target"><i class="fa fa-object-group"></i> Type</label>
+		<select id="node-input-target">
+			<option value="sequence">Sequence</option>
+			<option value="theme">Theme</option>
+			<option value="static">Static</option>
+		</select>
+	</div>
+	<div class="form-row edidio-typeidx">
+		<label for="node-input-index"><i class="fa fa-hashtag"></i> Index</label>
+		<input type="text" id="node-input-index" placeholder="0" />
+	</div>
+</script>
+
+<script type="text/html" data-help-name="edidio-spektra">
+	<p>Control SpektraPlus playback on a zone.</p>
+	<p>Configured fields are defaults; matching <code>msg.payload</code> fields override them.</p>
+	<h3>Actions</h3>
+	<ul>
+		<li><b>Start / Stop / Pause</b> — a stored <code>sequence</code>, <code>theme</code> or <code>static</code> scene at <code>index</code>.</li>
+		<li><b>Stop &amp; turn off</b> — halts playback and turns the output off (matches the SpektraPlus app's stop).</li>
+	</ul>
+</script>

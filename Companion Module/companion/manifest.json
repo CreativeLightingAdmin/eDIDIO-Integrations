@@ -1,0 +1,23 @@
+{
+	"id": "creativelighting-edidio",
+	"name": "creativelighting-edidio",
+	"shortname": "eDIDIO",
+	"description": "Control Freak eDIDIO lighting control (DALI, DMX, SpektraPlus) over TCP/TLS.",
+	"version": "1.0.0",
+	"license": "MIT",
+	"repository": "https://github.com/CreativeLightingAdmin/eDIDIO_3rd_Party",
+	"bugs": "https://github.com/CreativeLightingAdmin/eDIDIO_3rd_Party/issues",
+	"maintainers": [
+		{ "name": "Michael Howes", "email": "michael@creativelighting.com.au" }
+	],
+	"legacyIds": [],
+	"runtime": {
+		"type": "node18",
+		"api": "nodejs-ipc",
+		"apiVersion": "1.0.0",
+		"entrypoint": "../main.js"
+	},
+	"manufacturer": "Control Freak",
+	"products": ["eDIDIO"],
+	"keywords": ["lighting", "dali", "dmx", "edidio"]
+}

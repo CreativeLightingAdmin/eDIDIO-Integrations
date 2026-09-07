@@ -1,0 +1,10 @@
+# Keep the Docker build context small.
+**/node_modules
+**/.git
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/venv
+**/*.log
+**/*.state
+**/config.yaml

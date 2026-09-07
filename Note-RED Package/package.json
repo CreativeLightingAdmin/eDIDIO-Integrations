@@ -1,0 +1,40 @@
+{
+  "name": "node-red-contrib-edidio",
+  "version": "1.0.0",
+  "description": "Node-RED nodes for controlling Control Freak eDIDIO lighting controllers (DALI, DMX, SpektraPlus) over TCP/TLS.",
+  "keywords": [
+    "node-red",
+    "edidio",
+    "lighting",
+    "dali",
+    "dmx",
+    "spektra",
+    "control-freak"
+  ],
+  "author": "Michael Howes",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "node-red": {
+    "version": ">=3.0.0",
+    "nodes": {
+      "edidio-controller": "nodes/edidio-controller.js",
+      "edidio-dali": "nodes/edidio-dali.js",
+      "edidio-dmx": "nodes/edidio-dmx.js",
+      "edidio-spektra": "nodes/edidio-spektra.js"
+    }
+  },
+  "scripts": {
+    "test": "mocha \"test/**/*_spec.js\" --timeout 10000"
+  },
+  "dependencies": {
+    "google-protobuf": "^3.7.1"
+  },
+  "devDependencies": {
+    "mocha": "^10.0.0",
+    "node-red": "^4.0.0",
+    "node-red-node-test-helper": "^0.3.4",
+    "should": "^13.2.3"
+  }
+}

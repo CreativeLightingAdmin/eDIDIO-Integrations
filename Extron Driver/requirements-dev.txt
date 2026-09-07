@@ -1,0 +1,8 @@
+# Development/test dependencies ONLY. The driver itself has NO runtime
+# dependencies — it is pure Python and uses the extronlib provided by the Extron
+# platform (or the bundled stub for off-device tests).
+pytest>=7.0
+# Optional: enables the live byte-equality comparison in tests/test_frames.py.
+# Install the shared library in editable mode from the repo root:
+#   pip install -e ../../edidio_control_py
+edidio_control_py>=0.3.0

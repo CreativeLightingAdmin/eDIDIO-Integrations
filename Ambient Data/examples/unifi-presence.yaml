@@ -1,0 +1,34 @@
+# UniFi presence — dim the lights up as people (Wi-Fi clients) arrive, and run a
+# "welcome" scene when the first device connects after an empty house.
+#
+# Pure http_poll against a UniFi Network controller / UniFi OS. Newer UniFi OS
+# supports API keys (send as an X-API-KEY header). Point json_path at the client
+# count in whatever endpoint you use; here we illustrate a health/summary field.
+#
+# NOTE: UniFi endpoints vary by version — confirm the path with a quick curl
+# first (see the README on picking a json_path). Some deployments need a login
+# session instead of an API key.
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+source:
+  type: http_poll
+  name: "UniFi clients"
+  url: "https://192.168.1.1/proxy/network/api/s/default/stat/health"
+  json_path: "data.0.num_user"       # connected client count (adjust to yours)
+  interval: 30
+  headers:
+    X-API-KEY: "YOUR_UNIFI_API_KEY"
+
+mapping:
+  # More people -> brighter foyer group. Or swap for a threshold "welcome scene".
+  type: level
+  line: 1
+  group: 0
+  min: 0
+  max: 8               # ~8 devices = full brightness
+
+min_interval: 3

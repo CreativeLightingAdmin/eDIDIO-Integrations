@@ -1,0 +1,6 @@
+# eDIDIO Ambient Data engine dependencies.
+PyYAML>=6.0
+# Shared eDIDIO Python protocol engine (>=0.3.0). Install locally in dev:
+#   pip install -e ../../edidio_control_py
+edidio_control_py>=0.4.0
+# (HTTP polling uses the Python standard library; no extra deps.)

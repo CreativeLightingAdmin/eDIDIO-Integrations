@@ -1,0 +1,11 @@
+{
+  "name": "edidio-rti-driver",
+  "version": "1.0.0",
+  "description": "RTI Integration Designer 11 (JavaScript DDK) driver for Control Freak eDIDIO lighting control.",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "author": "Michael Howes"
+}

@@ -1,0 +1,27 @@
+# No-API demo: a sine wave sweeps a DMX line through a green→red gradient.
+# Great for a quick "does it work" test with a controller but no data feed.
+
+controller:
+  host: 192.168.1.50
+  port: 23
+  use_tls: false
+
+source:
+  type: demo
+  name: "sine demo"
+  interval: 0.5     # emit twice a second
+  min: 0
+  max: 100
+  period: 20        # full sweep every 20 s
+
+mapping:
+  type: gradient
+  line: 2
+  min: 0
+  max: 100
+  colors:
+    - "#00FF00"
+    - "#FFFF00"
+    - "#FF0000"
+
+min_interval: 0.5

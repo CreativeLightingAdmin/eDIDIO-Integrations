@@ -1,0 +1,28 @@
+{
+	"Name": "eDIDIO",
+	"Author": "Creative Lighting",
+	"Version": "1.0.0",
+	"SDKVersion": 2,
+	"CodePath": "index.html",
+	"PropertyInspectorPath": "pi.html",
+	"Category": "eDIDIO",
+	"CategoryIcon": "icons/category",
+	"Icon": "icons/plugin",
+	"Description": "Control Freak eDIDIO lighting control via the eDIDIO REST API Gateway (DALI, DMX, SpektraPlus).",
+	"URL": "https://creativelighting.com.au/integrations",
+	"Software": { "MinimumVersion": "5.0" },
+	"OS": [
+		{ "Platform": "windows", "MinimumVersion": "10" },
+		{ "Platform": "mac", "MinimumVersion": "10.15" }
+	],
+	"Actions": [
+		{
+			"Name": "eDIDIO Command",
+			"UUID": "com.creativelighting.edidio.command",
+			"Icon": "icons/action",
+			"Tooltip": "Send an eDIDIO lighting command (scene, level, colour, Spektra) via the REST gateway.",
+			"PropertyInspectorPath": "pi.html",
+			"States": [{ "Image": "icons/key", "TitleAlignment": "middle" }]
+		}
+	]
+}

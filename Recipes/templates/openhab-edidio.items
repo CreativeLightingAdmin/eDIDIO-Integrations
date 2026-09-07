@@ -1,0 +1,9 @@
+// openHAB Items for eDIDIO (link to the Things in openhab-edidio.things).
+
+Switch Kitchen_Power     "Kitchen"              { channel="mqtt:topic:mosquitto:edidio:kitchen" }
+Dimmer Kitchen_Brightness "Kitchen Brightness"  { channel="mqtt:topic:mosquitto:edidio:kitchen_bri" }
+
+Switch Living_Power      "Living Room"          { channel="mqtt:topic:mosquitto:edidio:living" }
+Dimmer Living_Brightness "Living Brightness"    { channel="mqtt:topic:mosquitto:edidio:living_bri" }
+
+Switch Movie_Scene       "Movie Scene"          { channel="mqtt:topic:mosquitto:edidio:movie" }
