@@ -111,6 +111,57 @@ astronomical schedules. Alarm index 0-8.
 first (it saves), then create a schedule whose trigger targets that sequence
 index. `preview_schedule` can do both in one preview.
 
+**Calendar** (`preview_calendar`): assign a sequence or theme to specific days of
+the year. Give `kind` ('sequence' or 'theme'), the `index` to run, and `days` (a
+list of day numbers 1-366 and/or ISO dates like '2026-12-25'). Set `override:
+true` to force it over the normal schedule. Read the current assignments any time
+with `get_calendar`.
+
+## Live playback (run something on a zone RIGHT NOW)
+To play a stored sequence/theme immediately (not on a schedule), use
+`play_sequence(zone, index)` / `play_theme(zone, index)`; `stop_zone(zone)` stops
+playback and turns the output off. This is transient (no preview/confirm needed).
+NOTE: a zone only produces physical output if it is patched to a line/universe
+(its `line_or_universe_mask` is non-zero) - check with `list_zones` first, or the
+command will succeed but nothing will be visible.
+
+## Schedules & calendar  (READ THIS before scheduling seasonal content)
+A schedule (alarm) fires an action at a time of day. The calendar decides WHICH
+sequence/theme runs on WHICH day of the year.
+
+**For any date-ranged or seasonal request** ("Christmas in December", "this week",
+"over the holidays"), use the CALENDAR for the dates and keep the SCHEDULES daily:
+  1. Author the sequence/theme.
+  2. `preview_calendar` to assign it to those days (day numbers or ISO dates).
+  3. Create DAILY start/stop schedules (repeat=daily, ALL months) where the START
+     action is `start_calendar` (Start Calendar Event - plays whatever the calendar
+     has for today) and the STOP action is `stop_sequence`.
+Do NOT restrict the schedule's month/day bitmask to the season, and do NOT use a
+`start_sequence` trigger tied to one sequence - that bypasses the calendar. Only
+narrow a schedule's own days/months if the user explicitly wants the SCHEDULE
+itself limited (e.g. "only on weekdays").
+
+For `repeat: daily`/`weekdays` the day + month bitmasks are filled automatically
+(else the controller shows the alarm as "Once"). Times can be "HH:MM" or an astro
+event (`sunrise`/`sunset`) with an optional `offset` ("2:00" after, "-0:30"
+before).
+
+## Device clock
+`get_time` reads the controller's RTC and compares it to this computer; `set_time`
+sets it (defaults to this computer's local time). If schedules fire at the wrong
+time, check `get_time` first.
+
+## Reading / queries (no writes)
+- `list_zones`, `list_sequences`, `list_themes` - what's configured on the device.
+- `whats_playing` - the LIVE state: which sequence/theme each zone is playing now.
+- `list_alarms`, `get_calendar` - the schedules and the full-year calendar.
+- `whats_scheduled_next` - computes the soonest alarm that will fire and when.
+- `get_time` - the controller's clock vs this computer's.
+
+Note: zones have NO name/title on the controller (only a number + electrical
+config); any friendly zone names live in the SpektraPlus app's project file.
+Sequences and themes DO have a `title`.
+
 ## Colour format
 Colours are **per-channel arrays of 0-255**, e.g. RGB `[255,0,0]` = red, RGBW
 `[255,0,0,0]`. The number of channels must match the zone (`channels_per_light`).

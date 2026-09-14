@@ -1,0 +1,23 @@
+5 logs read from device at 2026-01-01 12:00:00 PM
+
+
+
+12:00:01 2026-01-01:
+          [UserStart]
+          { 'Logging Level': '3' }
+
+12:00:02 2026-01-01:
+          [Trigger]
+          { 'Source': 'INPUTS', 'Details': 'DALI Arc             | Line 1     | Group 0              | Value: 254     ' }
+
+12:00:03 2026-01-01:
+          [Trigger]
+          { 'Source': 'LIST', 'Details': 'DALI Arc             | Line 2     | Group 1              | Value: 254     ' }
+
+12:00:30 2026-01-01:
+          [Trigger]
+          { 'Source': 'LIST', 'Details': 'DALI Arc             | Line 2     | Group 1              | Value: 0       ' }
+
+12:00:31 2026-01-01:
+          [Trigger]
+          { 'Source': 'INPUTS', 'Details': 'Start List           | Line None  | List 4              ' }

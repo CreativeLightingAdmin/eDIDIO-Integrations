@@ -1,0 +1,2681 @@
+{
+  "exportFormatVersion": "1.0.0",
+  "exportType": "controller_template",
+  "timestamp": 1761526636407,
+  "sourceProjectName": "New Project",
+  "sourceProjectUID": "1761095413244",
+  "data": {
+    "network": {
+      "ip": "192.168.20.145",
+      "staticIp": "192.168.0.70",
+      "mac": "40:D8:55:1B:A2:99",
+      "isConnected": false,
+      "deviceName": "eDIDIO Control",
+      "connectionProtocol": "TCP",
+      "dhcpEnabled": true,
+      "gateway": "192.168.0.1",
+      "subnet": "255.255.255.0",
+      "dnsPrimary": "8.8.8.8",
+      "dnsSecondary": "8.8.4.4",
+      "ntpServerIp": "time1.google.com",
+      "ntpEnabled": false,
+      "ntpTimeout": 21600
+    },
+    "firmwareVersion": "1.0.86",
+    "lineTypes": [
+      1,
+      2
+    ],
+    "project_name": "New Project",
+    "project_uid": "1760934916031",
+    "hardwareVersion": "2.1.0",
+    "projectName": "1760934916031$New Project",
+    "vendorId": "CtrlFreak",
+    "location": {
+      "longitude": 153.01953125,
+      "latitude": -27.470125198364258
+    },
+    "clock": {
+      "utcOffset": 10,
+      "daylightSavingsActive": false
+    },
+    "supportedFeatures": {
+      "inputs": 12,
+      "outputs": 4,
+      "irCodes": 5,
+      "listSteps": 255,
+      "lists": 32,
+      "sensors": 40,
+      "alarms": 9,
+      "burnIns": 2,
+      "lines": 2,
+      "profiles": 2,
+      "presetCodeBlocks": 3,
+      "userLevels": 5,
+      "controlTranslations": 1,
+      "logicObjects": 5,
+      "daliInputs": 40,
+      "zones": 10,
+      "sequences": 144,
+      "sequence_steps": 20,
+      "themes": 10,
+      "shows": 0,
+      "staticColours": 0,
+      "colourChannels": 0,
+      "coloursPerSequence": 0,
+      "coloursPerTheme": 0
+    },
+    "loggingLevel": 7012,
+    "activeProfile": 0,
+    "dali": {
+      "pollingInterval": 0,
+      "dali24BitType": 1,
+      "rxTolerancePercent": 10,
+      "txHalfBitTime": 416
+    },
+    "dmx": {
+      "timingMode": 0,
+      "lineProperties": []
+    },
+    "link": {
+      "enabled": false,
+      "type": 0,
+      "indexMask": 0,
+      "networkMask": 0
+    },
+    "lists": [
+      {
+        "name": "List 1",
+        "index": 0,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [
+          {
+            "index": 0,
+            "action": {
+              "commandtype": 31,
+              "zone": 255,
+              "linemask": 1,
+              "target": 77,
+              "value": 80,
+              "query": 0
+            },
+            "time_until_next": 1,
+            "duration": 1,
+            "timeUnit": "Seconds"
+          }
+        ],
+        "totalStepCount": 1,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 2",
+        "index": 1,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [
+          {
+            "index": 0,
+            "action": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "time_until_next": 2,
+            "duration": 2,
+            "timeUnit": "Seconds"
+          }
+        ],
+        "totalStepCount": 1,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 3",
+        "index": 2,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 4",
+        "index": 3,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 5",
+        "index": 4,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 6",
+        "index": 5,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 7",
+        "index": 6,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 8",
+        "index": 7,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 9",
+        "index": 8,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 10",
+        "index": 9,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 11",
+        "index": 10,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 12",
+        "index": 11,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 13",
+        "index": 12,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 14",
+        "index": 13,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 15",
+        "index": 14,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 16",
+        "index": 15,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 17",
+        "index": 16,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 18",
+        "index": 17,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 19",
+        "index": 18,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 20",
+        "index": 19,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 21",
+        "index": 20,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 22",
+        "index": 21,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 23",
+        "index": 22,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 24",
+        "index": 23,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 25",
+        "index": 24,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 26",
+        "index": 25,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 27",
+        "index": 26,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 28",
+        "index": 27,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 29",
+        "index": 28,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 30",
+        "index": 29,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 31",
+        "index": 30,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      },
+      {
+        "name": "List 32",
+        "index": 31,
+        "loop_on_startup": false,
+        "state": 0,
+        "steps": [],
+        "totalStepCount": 0,
+        "isShow": false,
+        "scheduledDates": [],
+        "error": null
+      }
+    ],
+    "schedules": [
+      {
+        "name": "Schedule 1",
+        "index": 0,
+        "IsEnabled": true,
+        "repeat": 1,
+        "monthsMask": 65535,
+        "weekdaysMask": 255,
+        "yearly": false,
+        "startEvent": {
+          "command": {
+            "commandtype": 1,
+            "zone": 255,
+            "linemask": 1,
+            "target": 68,
+            "value": 2,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2025-10-15",
+          "time": "13:47:27",
+          "offsetBefore": true
+        },
+        "endEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2000-00-00",
+          "time": "00:00:00",
+          "offsetBefore": false
+        },
+        "endEventIsActive": false,
+        "error": null
+      },
+      {
+        "name": "Schedule 2",
+        "index": 1,
+        "IsEnabled": true,
+        "repeat": 1,
+        "monthsMask": 65275,
+        "weekdaysMask": 247,
+        "yearly": false,
+        "startEvent": {
+          "command": {
+            "commandtype": 1,
+            "zone": 255,
+            "linemask": 1,
+            "target": 67,
+            "value": 2,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2025-10-15",
+          "time": "13:54:27",
+          "offsetBefore": true
+        },
+        "endEvent": {
+          "command": {
+            "commandtype": 1,
+            "zone": 255,
+            "linemask": 1,
+            "target": 67,
+            "value": 6,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2025-10-15",
+          "time": "19:47:27",
+          "offsetBefore": true
+        },
+        "endEventIsActive": true,
+        "error": null
+      },
+      {
+        "name": "Schedule 3",
+        "index": 2,
+        "IsEnabled": false,
+        "repeat": 0,
+        "monthsMask": 65535,
+        "weekdaysMask": 255,
+        "yearly": false,
+        "startEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2025-10-15",
+          "time": "13:47:27",
+          "offsetBefore": true
+        },
+        "endEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2000-00-00",
+          "time": "00:00:00",
+          "offsetBefore": false
+        },
+        "endEventIsActive": false,
+        "error": null
+      },
+      {
+        "name": "Schedule 4",
+        "index": 3,
+        "IsEnabled": false,
+        "repeat": 0,
+        "monthsMask": 65535,
+        "weekdaysMask": 255,
+        "yearly": false,
+        "startEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2025-10-15",
+          "time": "13:47:27",
+          "offsetBefore": true
+        },
+        "endEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2000-00-00",
+          "time": "00:00:00",
+          "offsetBefore": false
+        },
+        "endEventIsActive": false,
+        "error": null
+      },
+      {
+        "name": "Schedule 5",
+        "index": 4,
+        "IsEnabled": false,
+        "repeat": 0,
+        "monthsMask": 65535,
+        "weekdaysMask": 255,
+        "yearly": false,
+        "startEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2025-10-15",
+          "time": "13:47:27",
+          "offsetBefore": true
+        },
+        "endEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2000-00-00",
+          "time": "00:00:00",
+          "offsetBefore": false
+        },
+        "endEventIsActive": false,
+        "error": null
+      },
+      {
+        "name": "Schedule 6",
+        "index": 5,
+        "IsEnabled": false,
+        "repeat": 0,
+        "monthsMask": 65535,
+        "weekdaysMask": 255,
+        "yearly": false,
+        "startEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2025-10-15",
+          "time": "13:47:27",
+          "offsetBefore": true
+        },
+        "endEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2000-00-00",
+          "time": "00:00:00",
+          "offsetBefore": false
+        },
+        "endEventIsActive": false,
+        "error": null
+      },
+      {
+        "name": "Schedule 7",
+        "index": 6,
+        "IsEnabled": false,
+        "repeat": 0,
+        "monthsMask": 65535,
+        "weekdaysMask": 255,
+        "yearly": false,
+        "startEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2025-10-15",
+          "time": "13:47:27",
+          "offsetBefore": true
+        },
+        "endEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2000-00-00",
+          "time": "00:00:00",
+          "offsetBefore": false
+        },
+        "endEventIsActive": false,
+        "error": null
+      },
+      {
+        "name": "Schedule 8",
+        "index": 7,
+        "IsEnabled": false,
+        "repeat": 0,
+        "monthsMask": 65535,
+        "weekdaysMask": 255,
+        "yearly": false,
+        "startEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2025-10-15",
+          "time": "13:47:27",
+          "offsetBefore": true
+        },
+        "endEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2000-00-00",
+          "time": "00:00:00",
+          "offsetBefore": false
+        },
+        "endEventIsActive": false,
+        "error": null
+      },
+      {
+        "name": "Schedule 9",
+        "index": 8,
+        "IsEnabled": false,
+        "repeat": 0,
+        "monthsMask": 65535,
+        "weekdaysMask": 255,
+        "yearly": false,
+        "startEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2025-10-15",
+          "time": "13:47:27",
+          "offsetBefore": true
+        },
+        "endEvent": {
+          "command": {
+            "commandtype": 254,
+            "zone": 0,
+            "linemask": 0,
+            "target": 0,
+            "value": 0,
+            "query": 0
+          },
+          "type": 0,
+          "date": "2000-00-00",
+          "time": "00:00:00",
+          "offsetBefore": false
+        },
+        "endEventIsActive": false,
+        "error": null
+      }
+    ],
+    "burnIns": [
+      {
+        "name": "Burn In 1",
+        "index": 0,
+        "enabled": true,
+        "line_mask": 1,
+        "address": 65,
+        "query_address": 1,
+        "duration": 64800,
+        "remaining": 1080,
+        "states": {
+          "light_state": 15,
+          "running_flag": true,
+          "enable_flag": true
+        },
+        "error": null
+      },
+      {
+        "name": "Burn In 2",
+        "index": 1,
+        "enabled": false,
+        "line_mask": 0,
+        "address": 0,
+        "query_address": 0,
+        "duration": 0,
+        "remaining": 0,
+        "states": {
+          "light_state": 15,
+          "running_flag": true,
+          "enable_flag": false
+        },
+        "error": null
+      }
+    ],
+    "translations": [],
+    "logicActions": [
+      {
+        "name": "Logic 1",
+        "comparisonObject": {
+          "commandtype": 0,
+          "zone": 0,
+          "linemask": 1,
+          "target": 2,
+          "value": 0,
+          "query": 0
+        },
+        "comparisonType": 2,
+        "comparisonValue": 4,
+        "isEnabled": true,
+        "index": 0,
+        "trueAction": {
+          "commandtype": 8,
+          "zone": 255,
+          "linemask": 1,
+          "target": 76,
+          "value": 1,
+          "query": 10
+        },
+        "falseAction": {
+          "commandtype": 1,
+          "zone": 255,
+          "linemask": 1,
+          "target": 75,
+          "value": 8,
+          "query": 0
+        },
+        "error": null
+      },
+      {
+        "name": "Logic 1",
+        "comparisonObject": {
+          "commandtype": 255,
+          "zone": 255,
+          "linemask": 255,
+          "target": 255,
+          "value": 255,
+          "query": 255
+        },
+        "comparisonType": 255,
+        "comparisonValue": 255,
+        "isEnabled": false,
+        "index": 0,
+        "trueAction": {
+          "commandtype": 254,
+          "zone": 0,
+          "linemask": 0,
+          "target": 0,
+          "value": 0,
+          "query": 0
+        },
+        "falseAction": {
+          "commandtype": 254,
+          "zone": 0,
+          "linemask": 0,
+          "target": 0,
+          "value": 0,
+          "query": 0
+        },
+        "error": null
+      },
+      {
+        "name": "Logic 1",
+        "comparisonObject": {
+          "commandtype": 255,
+          "zone": 255,
+          "linemask": 255,
+          "target": 255,
+          "value": 255,
+          "query": 255
+        },
+        "comparisonType": 255,
+        "comparisonValue": 255,
+        "isEnabled": false,
+        "index": 0,
+        "trueAction": {
+          "commandtype": 254,
+          "zone": 0,
+          "linemask": 0,
+          "target": 0,
+          "value": 0,
+          "query": 0
+        },
+        "falseAction": {
+          "commandtype": 254,
+          "zone": 0,
+          "linemask": 0,
+          "target": 0,
+          "value": 0,
+          "query": 0
+        },
+        "error": null
+      },
+      {
+        "name": "Logic 1",
+        "comparisonObject": {
+          "commandtype": 255,
+          "zone": 255,
+          "linemask": 255,
+          "target": 255,
+          "value": 255,
+          "query": 255
+        },
+        "comparisonType": 255,
+        "comparisonValue": 255,
+        "isEnabled": false,
+        "index": 0,
+        "trueAction": {
+          "commandtype": 254,
+          "zone": 0,
+          "linemask": 0,
+          "target": 0,
+          "value": 0,
+          "query": 0
+        },
+        "falseAction": {
+          "commandtype": 254,
+          "zone": 0,
+          "linemask": 0,
+          "target": 0,
+          "value": 0,
+          "query": 0
+        },
+        "error": null
+      },
+      {
+        "name": "Logic 1",
+        "comparisonObject": {
+          "commandtype": 255,
+          "zone": 255,
+          "linemask": 255,
+          "target": 255,
+          "value": 255,
+          "query": 255
+        },
+        "comparisonType": 255,
+        "comparisonValue": 255,
+        "isEnabled": false,
+        "index": 0,
+        "trueAction": {
+          "commandtype": 254,
+          "zone": 0,
+          "linemask": 0,
+          "target": 0,
+          "value": 0,
+          "query": 0
+        },
+        "falseAction": {
+          "commandtype": 254,
+          "zone": 0,
+          "linemask": 0,
+          "target": 0,
+          "value": 0,
+          "query": 0
+        },
+        "error": null
+      }
+    ],
+    "profiles": [
+      {
+        "inputs": [
+          {
+            "name": "Input 1",
+            "index": 0,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 0,
+              "value": 91,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 2",
+            "index": 1,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 5,
+              "value": 17,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 3",
+            "index": 2,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 7,
+              "value": 23,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 4",
+            "index": 3,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 4,
+              "value": 22,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 67,
+              "value": 6,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 5",
+            "index": 4,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 80,
+              "value": 20,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 6",
+            "index": 5,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 80,
+              "value": 21,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 7",
+            "index": 6,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 80,
+              "value": 22,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 8",
+            "index": 7,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 80,
+              "value": 23,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 9",
+            "index": 8,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 80,
+              "value": 24,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 10",
+            "index": 9,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 80,
+              "value": 25,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 11",
+            "index": 10,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 80,
+              "value": 26,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 12",
+            "index": 11,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 80,
+              "value": 27,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          }
+        ],
+        "outputs": [
+          {
+            "name": "Output 1",
+            "index": 0,
+            "initiallyHigh": false,
+            "triggerTime": 1,
+            "type": 0
+          },
+          {
+            "name": "Output 2",
+            "index": 1,
+            "initiallyHigh": false,
+            "triggerTime": 0,
+            "type": 0
+          },
+          {
+            "name": "Output 3",
+            "index": 2,
+            "initiallyHigh": true,
+            "triggerTime": 16,
+            "type": 0
+          },
+          {
+            "name": "Output 4",
+            "index": 3,
+            "initiallyHigh": false,
+            "triggerTime": 254,
+            "type": 0
+          }
+        ],
+        "sensors": [
+          {
+            "index": 0,
+            "name": "Sensor 1",
+            "line": 1,
+            "address": 8,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11
+            ],
+            "identifier": "ced0afd7-5c68-4c9d-8cc8-576dad53d5f2",
+            "error": null
+          },
+          {
+            "index": 1,
+            "name": "Sensor 2",
+            "line": 1,
+            "address": 6,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              0,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11
+            ],
+            "identifier": "9bf8a40c-d4d5-41b9-b671-6ab3fc882d51",
+            "error": null
+          },
+          {
+            "index": 2,
+            "name": "Sensor 3",
+            "line": 1,
+            "address": 3,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              0,
+              1,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11
+            ],
+            "identifier": "a7ae0ef5-e789-4500-9fc6-d6d592a70130",
+            "error": null
+          },
+          {
+            "index": 3,
+            "name": "Sensor 4",
+            "line": 1,
+            "address": 5,
+            "setPoint": 100,
+            "inactivityTimer": 1,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 65,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              0,
+              1,
+              2,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11
+            ],
+            "identifier": "15d95c36-0473-4cca-a0ed-b824741a502d",
+            "error": null
+          },
+          {
+            "index": 4,
+            "name": "Sensor 5",
+            "line": 1,
+            "address": 2,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 66,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 66,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 66,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              5,
+              6
+            ],
+            "identifier": "2e49695a-8770-474a-943e-1a4ab198652a",
+            "error": null
+          },
+          {
+            "index": 5,
+            "name": "Sensor 6",
+            "line": 1,
+            "address": 4,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 66,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 66,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 66,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11
+            ],
+            "identifier": "f246208a-b1c6-4d74-a9b1-0980bea2c22f",
+            "error": null
+          },
+          {
+            "index": 6,
+            "name": "Sensor 7",
+            "line": 1,
+            "address": 7,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 66,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 66,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 66,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              7,
+              8,
+              9,
+              10,
+              11
+            ],
+            "identifier": "61f37256-e81d-484e-b773-8e80cdcb8b6b",
+            "error": null
+          },
+          {
+            "index": 7,
+            "name": "Sensor 8",
+            "line": 1,
+            "address": 1,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 67,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 67,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 67,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              8
+            ],
+            "identifier": "ea89f1ab-6993-4671-acdd-f9f5a70a3a90",
+            "error": null
+          },
+          {
+            "index": 8,
+            "name": "Sensor 9",
+            "line": 1,
+            "address": 9,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 67,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 67,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 1,
+              "target": 67,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              7
+            ],
+            "identifier": "e2e564e9-279f-4b5b-b35f-68b91df33c7b",
+            "error": null
+          },
+          {
+            "index": 9,
+            "name": "Sensor 10",
+            "line": 2,
+            "address": 2,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 2,
+              "target": 68,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 2,
+              "target": 68,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 2,
+              "target": 68,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              8,
+              10,
+              11
+            ],
+            "identifier": "242ce8a2-988e-49a1-9cbe-3a5029f3de3d",
+            "error": null
+          },
+          {
+            "index": 10,
+            "name": "Sensor 11",
+            "line": 2,
+            "address": 1,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 2,
+              "target": 68,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 2,
+              "target": 68,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 2,
+              "target": 68,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              8,
+              9,
+              11
+            ],
+            "identifier": "d1ca9809-4011-43d7-bba5-7902dbe0f2fa",
+            "error": null
+          },
+          {
+            "index": 11,
+            "name": "Sensor 12",
+            "line": 2,
+            "address": 3,
+            "setPoint": 100,
+            "inactivityTimer": 60,
+            "warningTimer": 600,
+            "disableTimer": 10,
+            "prgBtnOne": null,
+            "prgBtnTwo": null,
+            "motionOnly": true,
+            "detectionTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 2,
+              "target": 68,
+              "value": 254,
+              "query": 0
+            },
+            "warningTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 2,
+              "target": 68,
+              "value": 127,
+              "query": 0
+            },
+            "idleTrigger": {
+              "commandtype": 0,
+              "zone": 255,
+              "linemask": 2,
+              "target": 68,
+              "value": 127,
+              "query": 0
+            },
+            "groupedWithIndexes": [
+              8,
+              9,
+              10
+            ],
+            "identifier": "090c5aa0-54c0-45a7-be96-a3570caa19fc",
+            "error": null
+          }
+        ],
+        "daliInputs": [
+          {
+            "name": "DALI Input 1",
+            "address": 3,
+            "instance": 3,
+            "line": 1,
+            "isMomentaryOperation": true,
+            "isActive": true,
+            "shortOrLowAction": {
+              "commandtype": 8,
+              "zone": 255,
+              "linemask": 1,
+              "target": 77,
+              "value": 1,
+              "query": 11
+            },
+            "longOrHighAction": {
+              "commandtype": 1,
+              "zone": 255,
+              "linemask": 1,
+              "target": 74,
+              "value": 2,
+              "query": 0
+            },
+            "identifier": "550c4859-a22d-48da-8853-441d81a1d8ca",
+            "error": null
+          }
+        ],
+        "irs": [],
+        "userLevels": []
+      },
+      {
+        "inputs": [
+          {
+            "name": "Input 1",
+            "index": 0,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 16,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 2",
+            "index": 1,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 17,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 3",
+            "index": 2,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 18,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 4",
+            "index": 3,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 19,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 5",
+            "index": 4,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 20,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 6",
+            "index": 5,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 21,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 7",
+            "index": 6,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 22,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 8",
+            "index": 7,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 23,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 9",
+            "index": 8,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 24,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 10",
+            "index": 9,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 25,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 11",
+            "index": 10,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 26,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          },
+          {
+            "name": "Input 12",
+            "index": 11,
+            "isMomentaryOperation": true,
+            "shortLowAction": {
+              "commandtype": 1,
+              "zone": 0,
+              "linemask": 1,
+              "target": 80,
+              "value": 27,
+              "query": 0
+            },
+            "longHighAction": {
+              "commandtype": 254,
+              "zone": 0,
+              "linemask": 0,
+              "target": 0,
+              "value": 0,
+              "query": 0
+            },
+            "error": null
+          }
+        ],
+        "outputs": [
+          {
+            "name": "Output 1",
+            "index": 0,
+            "initiallyHigh": false,
+            "triggerTime": 1,
+            "type": 0
+          },
+          {
+            "name": "Output 2",
+            "index": 1,
+            "initiallyHigh": false,
+            "triggerTime": 0,
+            "type": 0
+          },
+          {
+            "name": "Output 3",
+            "index": 2,
+            "initiallyHigh": true,
+            "triggerTime": 16,
+            "type": 0
+          },
+          {
+            "name": "Output 4",
+            "index": 3,
+            "initiallyHigh": false,
+            "triggerTime": 254,
+            "type": 0
+          }
+        ],
+        "sensors": [],
+        "daliInputs": [],
+        "irs": [],
+        "userLevels": []
+      }
+    ],
+    "zones": [
+      {
+        "index": 0,
+        "alias": "Zone 1",
+        "linemask": 2,
+        "numChannels": 4,
+        "numLights": 1,
+        "channelTypes": [
+          0,
+          1,
+          2,
+          7
+        ],
+        "channelColours": [
+          "#ff0000",
+          "#00ff00",
+          "#0000ff",
+          "#FFFFFF"
+        ],
+        "protocol": 1,
+        "startAddress": 1,
+        "unscheduledBehaviourType": 1,
+        "scaleFactor": 1,
+        "multiLineAddressing": 0,
+        "daligroupoffset": null
+      },
+      {
+        "index": 1,
+        "alias": "avesaer",
+        "linemask": 1,
+        "numChannels": 4,
+        "numLights": 1,
+        "channelTypes": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "channelColours": [
+          "#ff0000",
+          "#00ff00",
+          "#0000ff",
+          "#F6E7D2"
+        ],
+        "protocol": 0,
+        "startAddress": 1,
+        "unscheduledBehaviourType": 1,
+        "scaleFactor": 1,
+        "multiLineAddressing": 0,
+        "daligroupoffset": null
+      }
+    ],
+    "sequences": [
+      {
+        "name": "Sequence 1",
+        "index": 0,
+        "backgroundColour": {
+          "channelValues": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "colours": [
+          {
+            "channelValues": [
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              255,
+              127,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              255,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              0,
+              255,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              75,
+              0,
+              130,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              148,
+              0,
+              211,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              255,
+              20,
+              147,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "fadeTime": 1000,
+        "fadeTimeUnit": 0,
+        "hasRandomColourOrder": false,
+        "isRandom": false,
+        "randomisedSequenceTypes": [],
+        "scheduledDates": [],
+        "direction": 0,
+        "range": 0,
+        "sequenceType": 0,
+        "timePerColour": 2000,
+        "timePerColourUnit": 0,
+        "timePerStep": 500,
+        "timePerStepUnit": 0,
+        "transitionType": 0,
+        "presetSequenceID": null,
+        "uuid": "5fdc08f5-002b-4df0-8b02-baf840bce1a7"
+      }
+    ],
+    "themes": [
+      {
+        "name": "Theme 1",
+        "index": 0,
+        "colours": [
+          {
+            "channelValues": [
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              0,
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "scheduledDates": [],
+        "uuid": "57cdcd63-9fb7-4c67-acf2-f2c9cf918d02"
+      },
+      {
+        "name": "Theme 2",
+        "index": 1,
+        "colours": [
+          {
+            "channelValues": [
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              0,
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "scheduledDates": [],
+        "uuid": "b641f296-8835-4066-8e43-299602a688cd"
+      },
+      {
+        "name": "Theme 3",
+        "index": 2,
+        "colours": [
+          {
+            "channelValues": [
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              0,
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "scheduledDates": [],
+        "uuid": "674791e1-7cee-4a39-8b6e-a38a67c11f71"
+      },
+      {
+        "name": "Theme 4",
+        "index": 3,
+        "colours": [
+          {
+            "channelValues": [
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              0,
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "scheduledDates": [],
+        "uuid": "28804eb2-e397-4b12-95cb-593e2821418e"
+      },
+      {
+        "name": "Theme 5",
+        "index": 4,
+        "colours": [
+          {
+            "channelValues": [
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "channelValues": [
+              0,
+              0,
+              254,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "scheduledDates": [],
+        "uuid": "5947ca13-e911-4ed1-a6b5-f86f2895bebd"
+      }
+    ],
+    "error": ""
+  }
+}

@@ -4,3 +4,4 @@ mcp>=2.0              # Model Context Protocol SDK (MCPServer)
 # Install locally in editable mode during development:
 #   pip install -e ../../edidio_control_py
 edidio_control_py>=0.4.0
+protobuf>=4.0          # used directly by the v2 event-stream module (_v2/eDS10_v2_pb2)
