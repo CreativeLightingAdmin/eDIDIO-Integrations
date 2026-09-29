@@ -1,40 +1,36 @@
-// A single TCP connection to an eDIDIO controller, with automatic reconnect
+// A single TCP/TLS connection to an eDIDIO controller, with automatic reconnect
 // and a keep-alive heartbeat. Emits 'connect', 'disconnect' and 'error'.
 //
-// With enableEvents(), it also subscribes to the controller's live event stream
-// (firmware >= 1.4.0) on every (re)connect and emits 'event' for each push and
-// 'state' for each DALI level change; current levels are kept in `levels`.
+// Self-contained (no external config module) so it can be embedded in the
+// Node-RED config node. Ports default to 23 (plain TCP) / 443 (TLS).
 
 const net = require('node:net');
 const tls = require('node:tls');
 const { EventEmitter } = require('node:events');
 const { AYT_FRAME } = require('./messageBuilder');
-const eventStream = require('./eventStream');
-const { config } = require('../config');
+
+const DEFAULT_TCP_PORT = 23;
+const DEFAULT_TLS_PORT = 443;
+const DEFAULT_HEARTBEAT_MS = 7000;
 
 class ControllerConnection extends EventEmitter {
-	// useTLS: connect over TLS (default port 443) instead of plain TCP (port 23).
-	// lineTypes: array of LineType numbers per physical line (from discovery), or null.
-	constructor(ip, { port, useTLS = false, lineTypes = null } = {}) {
+	// options: { port?, useTLS?, lineTypes?, heartbeatMs? }
+	constructor(ip, { port, useTLS = false, lineTypes = null, heartbeatMs = DEFAULT_HEARTBEAT_MS } = {}) {
 		super();
 		this.ip = ip;
 		this.useTLS = useTLS;
 		this.lineTypes = lineTypes || null;
-		this.port = port || (useTLS ? config.controllerTlsPort : config.controllerPort);
+		this.port = port || (useTLS ? DEFAULT_TLS_PORT : DEFAULT_TCP_PORT);
+		this.heartbeatMs = heartbeatMs;
 		this.socket = null;
 		this.connected = false;
 		this.shouldReconnect = false;
 		this.reconnectDelayMs = 2000;
 		this.heartbeatTimer = null;
 		this.reconnectTimer = null;
-		this.eventMask = null; // set by enableEvents()
-		this.levels = new eventStream.LevelTracker();
-		this.lastEventAt = null;
-		this._reader = new eventStream.FrameReader();
-		// EventEmitter throws if 'error' is emitted with no listener. A default
-		// listener guarantees connection errors are logged, never crash the bot,
-		// and still allow additional listeners to be added.
-		this.on('error', (err) => console.warn(`[controller ${this.ip}] ${err.message}`));
+		// EventEmitter throws if 'error' has no listener; a default one guarantees
+		// connection errors never crash the host process.
+		this.on('error', () => {});
 	}
 
 	connect() {
@@ -46,7 +42,6 @@ class ControllerConnection extends EventEmitter {
 				this.connected = true;
 				this.reconnectDelayMs = 2000; // reset backoff on success
 				this._startHeartbeat();
-				this._subscribeEvents();
 				this.emit('connect');
 				if (!settled) {
 					settled = true;
@@ -56,13 +51,11 @@ class ControllerConnection extends EventEmitter {
 
 			// eDIDIO controllers present self-signed / legacy (RSA-1024) certs, so
 			// like the SpektraPlus app we keep the socket up rather than reject on a
-			// failed chain. (Trust pinning is a future enhancement.)
+			// failed chain.
 			const socket = this.useTLS
 				? tls.connect({ host: this.ip, port: this.port, rejectUnauthorized: false }, onConnected)
 				: net.connect(this.port, this.ip, onConnected);
 			this.socket = socket;
-			this._reader = new eventStream.FrameReader();
-			socket.on('data', (chunk) => this._onData(chunk));
 
 			socket.on('error', (err) => {
 				this.emit('error', err);
@@ -76,8 +69,6 @@ class ControllerConnection extends EventEmitter {
 				const wasConnected = this.connected;
 				this.connected = false;
 				this._stopHeartbeat();
-				// Only signal an *unexpected* drop. An intentional disconnect() sets
-				// shouldReconnect = false first, so it won't fire a false alarm.
 				if (wasConnected && this.shouldReconnect) this.emit('disconnect');
 				this._scheduleReconnect();
 			});
@@ -99,30 +90,6 @@ class ControllerConnection extends EventEmitter {
 		this.connected = false;
 	}
 
-	// Subscribe to live events now (if connected) and after every reconnect.
-	enableEvents(categories = ['dali', 'inputs', 'sensors', 'triggers']) {
-		this.eventMask = eventStream.categoriesToMask(categories);
-		this._subscribeEvents();
-	}
-
-	_subscribeEvents() {
-		if (this.eventMask === null || !this.connected || !this.socket) return;
-		this.socket.write(Buffer.from(eventStream.buildSubscribe(this.eventMask)));
-	}
-
-	_onData(chunk) {
-		for (const body of this._reader.push(chunk)) {
-			const ev = eventStream.decodeFrame(body);
-			if (!ev) continue;
-			this.lastEventAt = ev.at;
-			this.emit('event', ev);
-			const change = eventStream.daliChange(ev);
-			if (!change) continue;
-			const touched = this.levels.apply(change); // [] = TX/RX-echo duplicate
-			if (touched.length) this.emit('state', { ...change, touched });
-		}
-	}
-
 	// Write a framed message. Resolves true if sent, false if not connected.
 	send(frame) {
 		if (!this.connected || !this.socket) return Promise.resolve(false);
@@ -140,7 +107,7 @@ class ControllerConnection extends EventEmitter {
 			if (this.connected && this.socket) {
 				this.socket.write(Buffer.from(AYT_FRAME));
 			}
-		}, config.heartbeatIntervalMs);
+		}, this.heartbeatMs);
 	}
 
 	_stopHeartbeat() {

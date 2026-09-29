@@ -6,7 +6,7 @@
 // (using discovery to learn its line-type map and TLS capability where it can).
 
 const { ControllerConnection } = require('./edidio/ControllerConnection');
-const { discoverControllers } = require('./edidio/discovery');
+const discovery = require('./edidio/discovery');
 const { config } = require('./config');
 
 const connections = new Map(); // ip -> ControllerConnection
@@ -16,7 +16,7 @@ const connections = new Map(); // ip -> ControllerConnection
 // we connect with the caller's explicit options (or defaults).
 async function probe(ip) {
 	try {
-		const found = await discoverControllers();
+		const found = await discovery.discoverControllers();
 		return found.find((c) => c.IP === ip) || null;
 	} catch {
 		return null;
@@ -42,6 +42,7 @@ async function openConnection(ip, options = {}) {
 	if (useTLS === undefined) useTLS = config.defaultUseTLS;
 
 	const conn = new ControllerConnection(ip, { port, useTLS, lineTypes });
+	if (config.events) conn.enableEvents(config.eventCategories);
 	// Store before connecting so the background retry loop is always tracked and
 	// closeConnection() can stop it even if the first attempt fails.
 	connections.set(ip, conn);
@@ -73,6 +74,8 @@ function listConnections() {
 		useTLS: conn.useTLS,
 		connected: conn.connected,
 		lineTypes: conn.lineTypes,
+		events: conn.eventMask !== null,
+		lastEventAt: conn.lastEventAt,
 	}));
 }
 

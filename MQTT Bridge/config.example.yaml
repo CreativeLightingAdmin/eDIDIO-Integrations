@@ -28,6 +28,9 @@ controller:
   port: 23               # 23 = plain TCP, 443 = TLS
   use_tls: false
   timeout: 5.0
+  # Publish real levels from the controller's live event stream (fw >= 1.4.0),
+  # so HA follows wall panels, schedules and other apps too.
+  state_feedback: true
 
 # ---------------------------------------------------------------------------
 # Entities. Each becomes MQTT command topics and (if enabled) an HA entity.
@@ -49,6 +52,7 @@ entities:
     type: light
     line: 1
     group: 0
+    members: [5]          # optional: group frames also update these address lights
 
   - id: movie
     name: "Movie Scene"

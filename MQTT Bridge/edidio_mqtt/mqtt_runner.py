@@ -16,10 +16,13 @@ _LOGGER = logging.getLogger(__name__)
 async def run(config) -> None:
     """Start the dispatcher and MQTT client; block until cancelled."""
     ctrl = config.controller
-    dispatcher = EdidioDispatcher(ctrl.host, ctrl.port, use_tls=ctrl.use_tls, timeout=ctrl.timeout)
+    bridge = Bridge(config, None)
+    dispatcher = EdidioDispatcher(
+        ctrl.host, ctrl.port, use_tls=ctrl.use_tls, timeout=ctrl.timeout,
+        on_state=bridge.on_state if ctrl.state_feedback else None,
+        groups=bridge.group_members())
+    bridge.dispatcher = dispatcher
     await dispatcher.start()
-
-    bridge = Bridge(config, dispatcher)
     ctx = config.context
     m = config.mqtt
 

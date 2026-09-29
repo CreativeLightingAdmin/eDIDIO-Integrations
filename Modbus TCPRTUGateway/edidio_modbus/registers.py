@@ -123,6 +123,24 @@ class RegisterEntry:
         return None  # unreachable given constructor validation
 
 
+# --- live state mirror (input registers, FC4) --------------------------------
+#
+# Fixed layout, no config: each DALI line gets a block of 100 input registers.
+#   input register = (line - 1) * 100 + offset + 1        (1-based; 30001 = 1)
+#   offset 0-63 short address, 64-79 group 0-15, 80 broadcast
+# Value = arc level 0-254 last seen on the bus, or STATE_UNKNOWN.
+STATE_LINE_STRIDE = 100
+STATE_BLOCK_SIZE = 4 * STATE_LINE_STRIDE
+STATE_UNKNOWN = 0xFFFF
+
+
+def state_register(line: int, address: int) -> int:
+    """1-based input register holding the level of (line, eDIDIO address)."""
+    if not (1 <= line <= 4 and 0 <= address <= 80):
+        raise ValueError(f"no state register for line {line} address {address}")
+    return (line - 1) * STATE_LINE_STRIDE + address + 1
+
+
 def _clamp(value: int, lo: int, hi: int) -> int:
     return max(lo, min(hi, value))
 

@@ -1,0 +1,46 @@
+{
+  "_comment": "Single source of truth for code that must be vendored (copied) into integrations whose hosts can't install packages (Extron ControlScript, Companion, SmartThings Edge, Node-RED bundles…). Edit the file under shared/, then run: python tools/sync_vendored.py. CI runs it with --check.",
+  "shared/js-engine/eDS10_ProtocolBuffer_pb.js": [
+    "Node-RED Package/lib/eDS10_ProtocolBuffer_pb.js",
+    "OBS Studio/src/edidio/eDS10_ProtocolBuffer_pb.js",
+    "Rest API Gateway/src/edidio/eDS10_ProtocolBuffer_pb.js",
+    "Telegram Bot/src/edidio/eDS10_ProtocolBuffer_pb.js",
+    "Twitch Bot/src/edidio/eDS10_ProtocolBuffer_pb.js"
+  ],
+  "shared/js-engine/messageBuilder.js": [
+    "Node-RED Package/lib/messageBuilder.js",
+    "OBS Studio/src/edidio/messageBuilder.js",
+    "Rest API Gateway/src/edidio/messageBuilder.js",
+    "Telegram Bot/src/edidio/messageBuilder.js",
+    "Twitch Bot/src/edidio/messageBuilder.js"
+  ],
+  "shared/js-engine/connection.js": [
+    "Node-RED Package/lib/connection.js",
+    "OBS Studio/src/edidio/connection.js",
+    "Telegram Bot/src/edidio/connection.js",
+    "Twitch Bot/src/edidio/connection.js"
+  ],
+  "shared/js-engine/eventStream.js": [
+    "Rest API Gateway/src/edidio/eventStream.js",
+    "Companion Module/src/eventStream.js",
+    "Homebridge Plugin/lib/eventStream.js"
+  ],
+  "shared/js-engine/frameConnection.js": [
+    "Companion Module/src/connection.js",
+    "Homebridge Plugin/lib/connection.js"
+  ],
+  "shared/encoders/edidio_frames.py": [
+    "AMX Driver/muse/edidio_frames.py",
+    "Extron Driver/edidio_frames.py",
+    "Savant Driver/edidio_frames.py"
+  ],
+  "shared/encoders/edidio_frames.js": [
+    "Companion Module/src/edidio_frames.js",
+    "RTI Driver/src/edidio_frames.js",
+    "Homebridge Plugin/lib/edidio_frames.js"
+  ],
+  "shared/encoders/edidio_frames.lua": [
+    "ELAN Driver/edidio_frames.lua",
+    "SmartThings Edge/src/edidio_frames.lua"
+  ]
+}

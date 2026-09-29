@@ -12,7 +12,7 @@ import logging
 from pyhap.accessory import Accessory
 from pyhap.const import CATEGORY_LIGHTBULB, CATEGORY_SWITCH
 
-from .specs import LightSpec, SceneSpec, pct_to_arc
+from .specs import LightSpec, SceneSpec, arc_to_pct, pct_to_arc
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +44,18 @@ class LightAccessory(Accessory):
     def _set_brightness(self, value):
         self._brightness = value
         self.dispatcher.submit(self.spec.level_intent(pct_to_arc(value)))
+
+    def apply_level(self, level):
+        """Reflect a level seen on the DALI bus in the Home app (no command sent).
+        ``level`` None means on at an unknown level (e.g. RECALL MIN)."""
+        if level == 0:
+            self.char_on.set_value(False)
+            return
+        self.char_on.set_value(True)
+        if level is not None:
+            pct = max(1, arc_to_pct(level))
+            self._brightness = pct
+            self.char_brightness.set_value(pct)
 
 
 class SceneAccessory(Accessory):

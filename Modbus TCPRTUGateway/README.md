@@ -67,6 +67,7 @@ Three sections — see `config.example.yaml` for a complete annotated file.
 | `port` | `23` | `23` = plain TCP, `443` = TLS |
 | `use_tls` | `false` | Connect over TLS |
 | `timeout` | `5.0` | Network timeout (s) |
+| `state_feedback` | `true` | Report **real** levels from the controller's live event stream (firmware ≥ 1.4.0) |
 
 ### `registers` — the register map
 
@@ -103,6 +104,32 @@ depends on `action`:
 
 `line` is `1`–`4` (physical daughter-board slot). Out-of-range values for
 scene/command are ignored (and logged); level values are clamped.
+
+## Live state — input registers (FC4)
+
+With `state_feedback: true` the gateway subscribes to the controller's event
+stream (firmware ≥ 1.4.0) and mirrors every DALI level **seen on the bus** —
+including changes from wall panels, schedules or SpektraPlus — into **input
+registers** (read-only, function code 4). The layout is fixed, no config needed:
+
+```
+input register = (line - 1) * 100 + offset + 1        (1-based; 30001 = register 1)
+offset 0-63  short address
+offset 64-79 group 0-15
+offset 80    broadcast
+```
+
+| Example | Input register |
+|---|---|
+| line 1, address 5 | 6 (**30006**) |
+| line 1, group 0 | 65 (**30065**) |
+| line 2, group 3 | 168 (**30168**) |
+| line 4, broadcast | 381 (**30381**) |
+
+Value = arc level `0`–`254`, or **`65535`** = unknown (not seen since the gateway
+started, or a command whose level depends on device config, e.g. RECALL MIN).
+Group membership isn't visible on the bus, so a group command updates the group's
+register; a broadcast updates every known register on the line.
 
 ## Running
 

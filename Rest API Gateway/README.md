@@ -41,7 +41,11 @@ Requires **Node.js >= 18**.
 |----------|---------|-------------|
 | `PORT` | `8080` | HTTP listen port |
 | `HOST` | `0.0.0.0` | HTTP bind address |
-| `EDIDIO_API_KEY` | *(empty)* | If set, all `/api` requests must send it (see [Auth](#authentication)). Empty disables auth. |
+| `EDIDIO_API_KEY` | *(empty)* | Full-control key (see [Auth](#authentication)). **Required** unless `HOST` is loopback. |
+| `EDIDIO_READ_API_KEY` | *(empty)* | Optional read-only key: `GET` only (status, state, live events) |
+| `EDIDIO_ALLOW_UNAUTHENTICATED` | `false` | Allow running with no key on a non-loopback `HOST` (trusted, isolated networks only) |
+| `EDIDIO_EVENTS` | `true` | Subscribe each controller to its live event stream (firmware ≥ 1.4.0) for `/state` + `/events` |
+| `EDIDIO_EVENT_CATEGORIES` | `dali,inputs,sensors,triggers` | Event categories to subscribe to |
 | `EDIDIO_IP` | *(empty)* | Default controller IP; lets requests omit `controller` |
 | `EDIDIO_PORT` | `23` | Plain-TCP controller port |
 | `EDIDIO_TLS_PORT` | `443` | TLS controller port |
@@ -50,13 +54,25 @@ Requires **Node.js >= 18**.
 
 ## Authentication
 
-If `EDIDIO_API_KEY` is set, every `/api/**` request must include it as either:
+Every `/api/**` request must include a key as either:
 
 - `X-API-Key: <key>` header, **or**
-- `Authorization: Bearer <key>` header
+- `Authorization: Bearer <key>` header, **or**
+- `?api_key=<key>` — **GET requests only**, for browser `EventSource` clients
+  that can't set headers (prefer headers elsewhere: query strings end up in logs).
 
-`/health` is always open. If the key is blank, the API is unauthenticated (only
-appropriate on a trusted, isolated network) and a warning is logged at startup.
+Two keys:
+
+| Key | Grants |
+|---|---|
+| `EDIDIO_API_KEY` | everything |
+| `EDIDIO_READ_API_KEY` | `GET`/`HEAD` only — dashboards, status displays, `/events`. Writes return `403`. |
+
+Keys are compared in constant time. `/health` is always open.
+
+**Fail-closed:** with no key configured, the gateway **refuses to start** unless
+`HOST` is loopback (`127.0.0.1`/`::1`/`localhost`) or
+`EDIDIO_ALLOW_UNAUTHENTICATED=true` is set explicitly.
 
 ## Addressing a controller
 
@@ -97,6 +113,33 @@ Base path: `/api/v1`. All responses are JSON with an `ok` boolean; errors add an
 | `POST` | `/controllers` | Open/replace a connection — body `{ ip, useTLS?, port? }` |
 | `GET` | `/controllers/:ip` | Status of one pooled connection |
 | `DELETE` | `/controllers/:ip` | Close and stop reconnecting |
+
+### Live state & events (firmware ≥ 1.4.0)
+
+Each pooled connection subscribes to the controller's event stream, so the
+gateway knows the **real** light levels — including changes made by wall panels,
+schedules, SpektraPlus or other gateways, not only its own commands.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/controllers/:ip/state` | Levels seen on the bus: `{ levels: { "line:address": level } }` |
+| `GET` | `/controllers/:ip/events` | **Server-Sent Events** stream: `snapshot`, then `state` and `event` |
+
+`address` uses eDIDIO addressing (0–63 short, `64 + g` group, `80` broadcast);
+`level` is `null` when the frame didn't state one (e.g. RECALL MIN). A `state`
+event carries the change plus `touched` (every target it updated):
+
+```
+event: state
+data: {"line":1,"address":5,"target":"address","level":200,"command":"arc","scene":null,"touched":[{"line":1,"address":5,"level":200}]}
+```
+
+Browser example (read-only key):
+
+```js
+const es = new EventSource('/api/v1/controllers/192.168.1.50/events?api_key=READ_KEY')
+es.addEventListener('state', (e) => console.log(JSON.parse(e.data)))
+```
 
 ### DALI
 
@@ -139,7 +182,8 @@ SpektraPlus app.
 ### Responses & status codes
 
 - `200` success · `202` connection opened but still pending
-- `400` invalid/missing field · `401` bad API key · `404` unknown route/controller
+- `400` invalid/missing field · `401` bad API key · `403` read-only key used for a write
+- `404` unknown route/controller
 - `409` wrong line type for the command
 - `503` target controller not currently connected (gateway is retrying)
 
@@ -184,6 +228,8 @@ entirely.
 
 ## Testing without hardware
 
+- **Automated:** `npm test` — API-key rules, the fail-closed startup guard, and
+  live state/SSE against a fake controller socket fed real event-stream frames.
 - **Boot check:** `npm start`, then `curl http://localhost:8080/health` → `200`.
 - **Validation:** POST malformed bodies (out-of-range `line`, missing `level`)
   and confirm `400` with a helpful message — no controller needed.
@@ -202,15 +248,19 @@ Rest API Gateway/
 │   ├── config.js              # .env-driven configuration
 │   ├── connectionManager.js   # IP-keyed pool of controller sockets
 │   ├── middleware/            # API-key auth + error handling
-│   ├── routes/                # controllers, dali, dmx, spektra + shared helpers
-│   └── edidio/                # protocol engine (protobuf, builders, discovery)
+│   ├── routes/                # controllers, events, dali, dmx, spektra + helpers
+│   └── edidio/                # protocol engine (protobuf, builders, discovery,
+│                              #   event stream)
+├── test/                      # node --test
 ├── .env.example
 └── package.json
 ```
 
 The `src/edidio/` engine (protobuf definitions, message builders, discovery,
 connection with keep-alive/reconnect) is shared with the eDIDIO Discord bot and
-mirrors the SpektraPlus wire protocol.
+mirrors the SpektraPlus wire protocol. `messageBuilder.js`,
+`eDS10_ProtocolBuffer_pb.js` and `eventStream.js` are vendored from the repo's
+`shared/js-engine/` — edit them there and run `python tools/sync_vendored.py`.
 
 ## License
 

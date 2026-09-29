@@ -101,3 +101,48 @@ def test_bad_payload_does_not_raise():
     # non-numeric brightness -> coerced to 0, no exception
     bridge.handle_message("edidio/kitchen/brightness/set", "banana")
     assert disp.intents[-1]["level"] == 0
+
+
+# --- live state feedback (edidio_control_py 0.5.0 event stream) ---
+
+def _feed(bridge, frame, line=0):
+    """Push one DALI bus frame through the real engine decoders into the bridge."""
+    import asyncio
+
+    from edidio_control_py.state import LevelTracker, dali_change
+
+    change = dali_change({"kind": "dali", "line": line, "frame_type": 1, "frame": frame})
+    touched = LevelTracker(bridge.group_members()).apply(change)
+    asyncio.run(bridge.on_state(change, touched))
+
+
+def test_state_feedback_publishes_real_level_for_address():
+    bridge, _, published = make()
+    _feed(bridge, 0x0A64)                       # addr 5 arc 100 (e.g. a wall panel)
+    assert ("edidio/kitchen/state", "ON", True) in published
+    assert ("edidio/kitchen/brightness", "100", True) in published
+
+
+def test_state_feedback_off_and_group():
+    bridge, _, published = make()
+    _feed(bridge, 0x8100)                       # group 0 cmd OFF
+    assert ("edidio/living/state", "OFF", True) in published
+    assert not any(t.startswith("edidio/kitchen") for t, _p, _r in published)
+
+
+def test_state_feedback_group_members_update_address_lights():
+    raw = {**RAW, "entities": [dict(e) for e in RAW["entities"]]}
+    raw["entities"][1]["members"] = [5]         # kitchen (addr 5) is in group 0
+    bridge = Bridge(BridgeConfig(raw), FakeDispatcher())
+    published = []
+    bridge.set_publisher(lambda t, p, r: published.append((t, p, r)))
+    _feed(bridge, 0x80C8)                       # group 0 arc 200
+    assert ("edidio/living/brightness", "200", True) in published
+    assert ("edidio/kitchen/brightness", "200", True) in published
+
+
+def test_state_feedback_ignores_other_lines_and_scenes():
+    bridge, _, published = make()
+    _feed(bridge, 0x0A64, line=1)               # line 2: nothing configured there
+    _feed(bridge, 0x0B13)                       # addr 5 GO TO SCENE 3: level unknown
+    assert published == []

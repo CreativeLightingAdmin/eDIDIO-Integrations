@@ -26,8 +26,11 @@ Home Assistant / any MQTT client
   MQTT command topics and, if discovery is on, a Home Assistant entity.
 - Commands are converted to lighting *intents* and sent to the controller over a
   persistent, auto-reconnecting connection (keep-alive via `edidio_control_py`).
-- The bridge is command-oriented: it echoes **optimistic state** back so HA
-  reflects changes immediately (it doesn't yet poll live fixture state).
+- **Live state:** the bridge subscribes to the controller's event stream
+  (firmware ≥ 1.4.0) and publishes the levels **actually seen on the DALI bus** —
+  so HA stays correct when a wall panel, schedule, SpektraPlus or another app
+  changes the lights. It also echoes optimistic state on each command so the UI
+  responds instantly; the real level follows.
 
 ## Setup
 
@@ -63,12 +66,18 @@ Three sections — see `config.example.yaml` for a full annotated file.
 | `host` | *(required)* | Controller IP/hostname |
 | `port` | `23` | `23` = plain TCP, `443` = TLS |
 | `use_tls` | `false` | Connect over TLS |
+| `state_feedback` | `true` | Report **real** levels from the controller's live event stream (firmware ≥ 1.4.0) |
 
 ### `entities`
 | `type` | Fields | Becomes |
 |--------|--------|---------|
 | `light` | `line` + (`address` **or** `group`) | HA **light** with on/off + brightness (0-254) |
 | `scene` | `line`, `scene` [, `group`] | HA **scene** (stateless trigger; broadcast or on a group) |
+
+Group lights may list `members: [5, 6]` (short addresses). Group membership isn't
+visible on the bus, so this lets a group command also update lights you've
+configured by individual address. Broadcast commands update every light on the
+line automatically.
 
 ## Topics
 

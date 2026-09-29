@@ -94,6 +94,22 @@ class LightEntity(Entity):
         else:
             self.group = _require_int(cfg, "group", 0, 15)
             self.address = None
+        # Optional group members (short addresses): lets live state from a group
+        # frame also update lights configured by individual address.
+        self.members = [int(a) for a in (cfg.get("members") or [])]
+
+    @property
+    def edidio_address(self) -> int:
+        """eDIDIO address convention: 0-63 short, 64 + group for groups."""
+        return self.address if self.address is not None else 64 + self.group
+
+    def state_messages(self, ctx, level):
+        """[(topic, payload, retain)] for a level observed on the bus. ``level`` is
+        None when the frame didn't state one (e.g. RECALL MIN): light is on."""
+        state = [(self._t(ctx, "state"), "OFF" if level == 0 else "ON", True)]
+        if level:
+            state.append((self._t(ctx, "brightness"), str(level), True))
+        return state
 
     def _t(self, ctx, suffix):
         return f"{ctx.base}/{self.id}/{suffix}"

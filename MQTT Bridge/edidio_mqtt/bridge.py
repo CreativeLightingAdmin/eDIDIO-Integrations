@@ -2,7 +2,9 @@
 
 Maps subscribed command topics to entities, builds Home Assistant discovery
 messages, and turns an incoming (topic, payload) into an eDIDIO intent plus any
-optimistic state publishes. Kept independent of paho/MQTT so it is unit testable
+optimistic state publishes. With state feedback on, ``on_state`` publishes the
+levels actually seen on the DALI bus — including changes made by wall panels,
+schedules or other apps. Kept independent of paho/MQTT so it is unit testable
 with a fake dispatcher and publisher.
 """
 
@@ -22,9 +24,26 @@ class Bridge:
         self.dispatcher = dispatcher
         self._publisher = publisher  # callable(topic, payload, retain)
         self._topic_map = {}
+        self._by_address = {}   # (line, eDIDIO address) -> [light entities]
         for entity in self.entities:
             for topic in entity.command_topics(self.ctx):
                 self._topic_map[topic] = entity
+            if hasattr(entity, "edidio_address"):
+                self._by_address.setdefault((entity.line, entity.edidio_address), []).append(entity)
+
+    def group_members(self) -> dict:
+        """{(line, group): [addresses]} from group lights that list ``members``."""
+        return {(e.line, e.group): e.members for e in self.entities
+                if getattr(e, "group", None) is not None and getattr(e, "members", None)}
+
+    async def on_state(self, change, touched) -> None:
+        """Dispatcher state callback: publish real levels for affected lights."""
+        if change.level is None and change.command == "scene":
+            return          # scene result depends on stored levels: wait for arc frames
+        for line, address, level in touched:
+            for entity in self._by_address.get((line, address), []):
+                for topic, payload, retain in entity.state_messages(self.ctx, level):
+                    self._publish(topic, payload, retain)
 
     def set_publisher(self, publisher):
         self._publisher = publisher

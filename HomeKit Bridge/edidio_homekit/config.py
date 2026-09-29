@@ -30,6 +30,8 @@ class ControllerConfig:
         self.port = int(raw.get("port", 23))
         self.use_tls = bool(raw.get("use_tls", False))
         self.timeout = float(raw.get("timeout", 5.0))
+        # Reflect live DALI levels in the Home app (firmware >= 1.4.0).
+        self.state_feedback = bool(raw.get("state_feedback", True))
 
 
 class BridgeConfig:

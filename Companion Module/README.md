@@ -20,8 +20,28 @@ live events, broadcast and AV control rooms.
 | SpektraPlus: Control | zone, type, index, action |
 | SpektraPlus: Stop (and off) | zone |
 
-**Config:** controller IP, port (23 TCP / 443 TLS), TLS on/off. The module shows
-its connection status and keeps the socket alive automatically.
+**Config:** controller IP, port (23 TCP / 443 TLS), TLS on/off, live feedback
+on/off. The module shows its connection status and keeps the socket alive
+automatically.
+
+## Feedbacks & variables (firmware 1.4.0+)
+
+The module subscribes to the controller's live event stream, so buttons reflect
+the **real** state — including changes from wall panels, schedules or SpektraPlus.
+
+| Feedback | Options | True when |
+|---|---|---|
+| DALI: Light state | line, target (address/group/broadcast), id, when (on / off / level at least N) | the last level seen on the bus matches |
+| SpektraPlus: Playing | zone, index (blank = any) | a sequence/theme is running in the zone |
+
+Variables are created as targets are first seen:
+
+| Variable | Value |
+|---|---|
+| `$(edidio:level_l1_a5)` | line 1, address 5 level (0–254, or `on` when unknown) |
+| `$(edidio:level_l1_g3)` / `$(edidio:level_l1_bc)` | group 3 / broadcast |
+| `$(edidio:spektra_z0)` | index playing on zone 0 (blank when stopped) |
+| `$(edidio:last_input)` | last input pressed |
 
 ## Install (development)
 

@@ -26,6 +26,8 @@ controller:
   port: 23           # 23 = plain TCP, 443 = TLS
   use_tls: false
   timeout: 5.0
+  # Mirror live DALI levels into input registers (FC4) — see README (fw >= 1.4.0).
+  state_feedback: true
 
 # ---------------------------------------------------------------------------
 # Register map. `register` is the 1-based holding register number, so

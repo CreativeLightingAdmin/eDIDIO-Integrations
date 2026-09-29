@@ -15,7 +15,7 @@ from pymodbus.server import StartAsyncSerialServer, StartAsyncTcpServer
 
 from . import __version__
 from .config import GatewayConfig
-from .datastore import CommandDataBlock
+from .datastore import CommandDataBlock, StateDataBlock
 from .dispatcher import EdidioDispatcher
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,24 +33,29 @@ def _identity() -> ModbusDeviceIdentification:
     )
 
 
-def build_context(config: GatewayConfig, dispatcher: EdidioDispatcher) -> ModbusServerContext:
-    """Build a single-slave server context whose holding registers fire commands."""
+def build_context(config: GatewayConfig, dispatcher: EdidioDispatcher,
+                  state: StateDataBlock | None = None) -> ModbusServerContext:
+    """Build a single-slave server context: holding registers fire commands, input
+    registers mirror live DALI levels (when ``state`` is given)."""
     hr = CommandDataBlock(config.registers, dispatcher)
-    # Discrete inputs / coils / input registers are unused but must exist.
+    # Discrete inputs / coils are unused but must exist.
     zeros = lambda: ModbusSequentialDataBlock(1, [0])  # noqa: E731
-    slave = ModbusSlaveContext(di=zeros(), co=zeros(), ir=zeros(), hr=hr)
+    ir = state if state is not None else zeros()
+    slave = ModbusSlaveContext(di=zeros(), co=zeros(), ir=ir, hr=hr)
     return ModbusServerContext(slaves={config.server.unit_id: slave}, single=False)
 
 
 async def run(config: GatewayConfig) -> None:
     """Start the dispatcher and the Modbus server (blocks until cancelled)."""
     ctrl = config.controller
+    state = StateDataBlock() if ctrl.state_feedback else None
     dispatcher = EdidioDispatcher(
-        ctrl.host, ctrl.port, use_tls=ctrl.use_tls, timeout=ctrl.timeout
+        ctrl.host, ctrl.port, use_tls=ctrl.use_tls, timeout=ctrl.timeout,
+        on_state=state.on_state if state is not None else None,
     )
     await dispatcher.start()
 
-    context = build_context(config, dispatcher)
+    context = build_context(config, dispatcher, state)
     srv = config.server
 
     try:

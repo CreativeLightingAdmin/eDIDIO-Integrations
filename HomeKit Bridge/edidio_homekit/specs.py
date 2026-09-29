@@ -25,6 +25,12 @@ def pct_to_arc(pct: float) -> int:
     return round(pct * DALI_ARC_LEVEL_MAX / 100)
 
 
+def arc_to_pct(level: int) -> int:
+    """DALI arc level (0-254) -> HomeKit brightness percent (0-100)."""
+    level = max(0, min(DALI_ARC_LEVEL_MAX, int(level)))
+    return round(level * 100 / DALI_ARC_LEVEL_MAX)
+
+
 def _require_int(cfg, key, lo, hi, *, required=True, default=None):
     if key not in cfg or cfg[key] is None:
         if required:
@@ -62,6 +68,11 @@ class LightSpec(Spec):
         else:
             self.group = _require_int(cfg, "group", 0, 15)
             self.address = None
+
+    @property
+    def edidio_address(self) -> int:
+        """eDIDIO address convention: 0-63 short, 64 + group for groups."""
+        return self.address if self.address is not None else 64 + self.group
 
     def level_intent(self, level: int) -> dict:
         level = max(0, min(DALI_ARC_LEVEL_MAX, int(level)))

@@ -17,7 +17,7 @@ import logging
 from pymodbus.datastore import ModbusSequentialDataBlock
 
 from .dispatcher import EdidioDispatcher
-from .registers import RegisterEntry
+from .registers import STATE_BLOCK_SIZE, STATE_UNKNOWN, RegisterEntry, state_register
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,3 +55,24 @@ class CommandDataBlock(ModbusSequentialDataBlock):
                 continue
             _LOGGER.info("Register %s (%s) <- %s => %s", reg, entry.name, value, intent["kind"])
             self._dispatcher.submit(intent)
+
+
+class StateDataBlock(ModbusSequentialDataBlock):
+    """Input registers mirroring the DALI levels seen on the bus (read-only, FC4).
+
+    Filled from the live event stream by ``on_state``, so a BMS/PLC reads the
+    real level — including changes made by wall panels, schedules or other apps.
+    See ``registers.state_register`` for the layout.
+    """
+
+    def __init__(self):
+        super().__init__(1, [STATE_UNKNOWN] * STATE_BLOCK_SIZE)
+
+    def level(self, line: int, address: int) -> int:
+        return self.getValues(state_register(line, address), 1)[0]
+
+    async def on_state(self, change, touched) -> None:
+        """Dispatcher state callback."""
+        for line, address, level in touched:
+            value = STATE_UNKNOWN if level is None else int(level)
+            self.setValues(state_register(line, address), [value])

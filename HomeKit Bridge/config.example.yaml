@@ -21,6 +21,7 @@ controller:
   port: 23             # 23 = plain TCP, 443 = TLS
   use_tls: false
   timeout: 5.0
+  state_feedback: true   # live levels in the Home app (fw >= 1.4.0)
 
 # ---------------------------------------------------------------------------
 # Accessories exposed to HomeKit.

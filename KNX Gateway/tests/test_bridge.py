@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from xknx.dpt import DPTArray, DPTBinary  # noqa: E402
 from xknx.telegram import Telegram  # noqa: E402
 from xknx.telegram.address import GroupAddress  # noqa: E402
-from xknx.telegram.apci import GroupValueRead, GroupValueWrite  # noqa: E402
+from xknx.telegram.apci import GroupValueRead, GroupValueResponse, GroupValueWrite  # noqa: E402
 
 from edidio_knx.bridge import KnxBridge  # noqa: E402
 from edidio_knx.config import GatewayConfig  # noqa: E402
@@ -103,3 +103,88 @@ def test_group_read_ignored():
     # A GroupValueRead on a mapped GA must not trigger an action.
     bridge.handle_telegram(Telegram(destination_address=GroupAddress("1/1/2"), payload=GroupValueRead()))
     assert disp.intents == []
+
+
+# --- status / feedback GAs (live DALI state -> KNX) ---
+
+import asyncio  # noqa: E402
+
+import pytest  # noqa: E402
+from edidio_control_py.state import LevelTracker, dali_change  # noqa: E402
+
+from edidio_knx.group_map import ConfigError  # noqa: E402
+
+STATUS_RAW = {
+    **RAW,
+    "group_addresses": [
+        {"ga": "1/1/1", "action": "dali_level", "dpt": "scaling", "line": 1,
+         "dali_address": 5, "status_ga": "1/4/1"},
+        {"ga": "1/1/2", "action": "dali_level", "dpt": "switch", "line": 1,
+         "dali_address": 5, "status_ga": "1/4/2"},
+        {"ga": "2/1/1", "action": "dali_group_level", "dpt": "scaling", "line": 1,
+         "group": 0, "status_ga": "2/4/1"},
+    ],
+}
+
+
+def make_status():
+    sent = []
+    bridge = KnxBridge(GatewayConfig(STATUS_RAW), FakeDispatcher(), send=sent.append)
+    return bridge, sent
+
+
+def feed(bridge, frame):
+    change = dali_change({"kind": "dali", "line": 0, "frame_type": 1, "frame": frame})
+    asyncio.run(bridge.on_state(change, LevelTracker().apply(change)))
+
+
+def test_status_ga_written_with_matching_dpt():
+    bridge, sent = make_status()
+    feed(bridge, 0x0A7F)                        # addr 5 arc 127 (~50%)
+    by_ga = {str(t.destination_address): t.payload for t in sent}
+    assert isinstance(by_ga["1/4/1"], GroupValueWrite)
+    assert by_ga["1/4/1"].value == DPTArray((128,))   # 127 * 255 / 254 = 127.5 -> 128
+    assert by_ga["1/4/2"].value == DPTBinary(1)
+    assert "2/4/1" not in by_ga
+
+
+def test_status_unchanged_value_not_resent_and_off():
+    bridge, sent = make_status()
+    feed(bridge, 0x0A7F)
+    n = len(sent)
+    feed(bridge, 0x0A7F)
+    assert len(sent) == n                       # no duplicate writes
+    feed(bridge, 0x0B00)                        # addr 5 OFF
+    by_ga = {str(t.destination_address): t.payload.value for t in sent[n:]}
+    assert by_ga == {"1/4/1": DPTArray((0,)), "1/4/2": DPTBinary(0)}
+
+
+def test_status_read_is_answered_with_last_value():
+    bridge, sent = make_status()
+    read = Telegram(destination_address=GroupAddress("1/4/2"), payload=GroupValueRead())
+    bridge.handle_telegram(read)
+    assert sent == []                           # nothing known yet
+    feed(bridge, 0x0AFE)                        # addr 5 arc 254
+    sent.clear()
+    bridge.handle_telegram(read)
+    assert len(sent) == 1 and isinstance(sent[0].payload, GroupValueResponse)
+    assert sent[0].payload.value == DPTBinary(1)
+
+
+def test_group_frame_updates_group_status_only():
+    bridge, sent = make_status()
+    feed(bridge, 0x8064)                        # group 0 arc 100
+    assert [str(t.destination_address) for t in sent] == ["2/4/1"]
+
+
+def test_status_ga_config_validation():
+    bad = {**RAW, "group_addresses": [
+        {"ga": "3/1/1", "action": "dali_scene", "dpt": "switch", "line": 1,
+         "scene": 3, "status_ga": "3/4/1"}]}
+    with pytest.raises(ConfigError):
+        GatewayConfig(bad)
+    clash = {**RAW, "group_addresses": [
+        {"ga": "1/1/1", "action": "dali_level", "dpt": "scaling", "line": 1,
+         "dali_address": 5, "status_ga": "1/1/1"}]}
+    with pytest.raises(ConfigError):
+        GatewayConfig(clash)

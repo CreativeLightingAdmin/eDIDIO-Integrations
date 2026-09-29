@@ -1,5 +1,6 @@
 """The eDIDIO HomeKit bridge accessory: owns the dispatcher and hosts the
-light/scene accessories.
+light/scene accessories. With state feedback on, levels seen on the DALI bus
+(wall panels, schedules, other apps) are reflected in the Home app.
 """
 
 from __future__ import annotations
@@ -10,6 +11,7 @@ from pyhap.accessory import Bridge
 
 from . import __version__
 from .accessories import build_accessory
+from .specs import LightSpec
 from .dispatcher import EdidioDispatcher
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,10 +28,23 @@ class EdidioHomeKitBridge(Bridge):
         )
         ctrl = config.controller
         self.dispatcher = EdidioDispatcher(
-            ctrl.host, ctrl.port, use_tls=ctrl.use_tls, timeout=ctrl.timeout
+            ctrl.host, ctrl.port, use_tls=ctrl.use_tls, timeout=ctrl.timeout,
+            on_state=self.on_state if ctrl.state_feedback else None,
         )
+        self._lights = {}  # (line, eDIDIO address) -> [LightAccessory]
         for spec in config.specs:
-            self.add_accessory(build_accessory(driver, spec, self.dispatcher))
+            acc = build_accessory(driver, spec, self.dispatcher)
+            self.add_accessory(acc)
+            if isinstance(spec, LightSpec):
+                self._lights.setdefault((spec.line, spec.edidio_address), []).append(acc)
+
+    async def on_state(self, change, touched):
+        """Dispatcher state callback (runs on the driver's loop)."""
+        if change.level is None and change.command == "scene":
+            return
+        for line, address, level in touched:
+            for acc in self._lights.get((line, address), []):
+                acc.apply_level(level)
 
     async def run(self):
         # Runs on the driver's event loop once the HAP server is up.

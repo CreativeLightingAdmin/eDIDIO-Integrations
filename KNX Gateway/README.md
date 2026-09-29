@@ -80,6 +80,27 @@ how to read the telegram value:
 (`ga` is the KNX group address, e.g. `1/1/1`; `dali_address` is the DALI short
 address, kept distinct to avoid confusion.)
 
+#### Status / feedback GAs
+
+Level entries (`dali_level`, `dali_group_level`) may add a `status_ga`. The gateway
+subscribes to the controller's live event stream (firmware ≥ 1.4.0) and writes the
+level **actually seen on the DALI bus** to that GA — using the entry's `dpt`
+(1.001 on/off or 5.001 %) — whenever it changes, including changes from wall
+panels, schedules or SpektraPlus. It also answers **GroupValueRead** on the status
+GA with the last known value, like a standard KNX status object. Link the status
+GA to your visualisation / switch feedback objects in ETS.
+
+```yaml
+  - ga: "1/1/1"
+    action: dali_level
+    dpt: scaling
+    line: 1
+    dali_address: 5
+    status_ga: "1/4/1"     # real level written here
+```
+
+A status GA must not also be a command GA, and each may be used once.
+
 ## Testing
 
 ### Automated (no KNX bus, no hardware)

@@ -58,6 +58,12 @@ def _scaling_to_arc(value: int) -> int:
     return round(value * DALI_ARC_LEVEL_MAX / 255)
 
 
+def _arc_to_scaling(level: int) -> int:
+    """DALI arc level (0-254) -> DPT 5.001 raw byte (0-255)."""
+    level = max(0, min(DALI_ARC_LEVEL_MAX, int(level)))
+    return round(level * 255 / DALI_ARC_LEVEL_MAX)
+
+
 class GroupTarget:
     """One validated KNX group address -> eDIDIO action mapping."""
 
@@ -84,6 +90,15 @@ class GroupTarget:
             self.dali_address = _require_int(cfg, "dali_address", 0, 63)
         elif self.action == "dali_group_level":
             self.group = _require_int(cfg, "group", 0, 15)
+
+        # Optional status/feedback GA: the gateway writes the level actually seen
+        # on the DALI bus here (same DPT as `dpt`) and answers reads on it.
+        self.status_ga = cfg.get("status_ga")
+        if self.status_ga is not None:
+            if self.action not in ("dali_level", "dali_group_level"):
+                raise ConfigError(f"GA '{self.ga}': status_ga is only valid for level actions")
+            if not _valid_ga(self.status_ga):
+                raise ConfigError(f"GA '{self.ga}': invalid status_ga {self.status_ga!r}")
         elif self.action == "dali_scene":
             self.group = _require_int(cfg, "group", 0, 15, required=False, default=None)
             if self.dpt == "switch":
@@ -91,6 +106,24 @@ class GroupTarget:
                 self.scene = _require_int(cfg, "scene", 0, 15)
             else:
                 self.scene = None  # scene number comes from the telegram
+
+    @property
+    def edidio_address(self):
+        """eDIDIO address this entry controls (0-63 short, 64+g group), or None."""
+        if self.action == "dali_level":
+            return self.dali_address
+        if self.action == "dali_group_level":
+            return 64 + self.group
+        return None
+
+    def status_value(self, level):
+        """Value to write on status_ga for an observed arc level (None = unknown
+        level but on, e.g. RECALL MIN): 0/1 for switch, a 0-255 byte for scaling."""
+        if self.dpt == "switch":
+            return 0 if level == 0 else 1
+        if level is None:
+            return None
+        return _arc_to_scaling(level)
 
     def intent(self, value: int):
         """Translate a decoded telegram value into an intent, or None (ignored)."""
@@ -130,4 +163,10 @@ def build_group_map(entries: list) -> dict:
         if target.ga in result:
             raise ConfigError(f"duplicate group address {target.ga}")
         result[target.ga] = target
+    status = [t.status_ga for t in result.values() if t.status_ga]
+    for ga in status:
+        if ga in result:
+            raise ConfigError(f"status_ga {ga} is also a command group address")
+    if len(status) != len(set(status)):
+        raise ConfigError("each status_ga may only be used once")
     return result

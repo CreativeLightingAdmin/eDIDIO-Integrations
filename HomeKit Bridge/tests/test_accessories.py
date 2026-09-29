@@ -84,3 +84,42 @@ def test_scene_on_group(driver):
     acc = SceneAccessory(driver, SceneSpec({"id": "w", "type": "scene", "line": 1, "scene": 1, "group": 4}), disp)
     acc.char_on.client_update_value(True)
     assert disp.intents[-1] == {"kind": "dali_scene", "line": 1, "scene": 1, "group": 4}
+
+
+
+# --- live state feedback ---
+
+def test_apply_level_reflects_bus_state_without_sending(driver):
+    disp = FakeDispatcher()
+    acc = LightAccessory(driver, LightSpec({"id": "k", "type": "light", "line": 1, "address": 5}), disp)
+    acc.apply_level(127)
+    assert acc.char_on.value is True and acc.char_brightness.value == 50
+    acc.apply_level(0)
+    assert acc.char_on.value is False
+    assert disp.intents == []                      # feedback never echoes a command
+    acc.char_on.client_update_value(True)          # On restores the observed 50%
+    assert disp.intents[-1]["level"] == 127
+
+
+def test_bridge_routes_state_to_matching_lights(driver):
+    import asyncio
+
+    from edidio_control_py.state import LevelTracker, dali_change
+
+    from edidio_homekit.bridge import EdidioHomeKitBridge
+    from edidio_homekit.config import BridgeConfig
+
+    cfg = BridgeConfig({
+        "homekit": {"name": "t", "port": 51999, "pincode": "031-45-154"},
+        "controller": {"host": "10.0.0.1"},
+        "accessories": [
+            {"id": "k", "name": "Kitchen", "type": "light", "line": 1, "address": 5},
+            {"id": "g", "name": "Group", "type": "light", "line": 1, "group": 2},
+        ],
+    })
+    bridge = EdidioHomeKitBridge(driver, cfg)
+    change = dali_change({"kind": "dali", "line": 0, "frame_type": 1, "frame": 0x84FE})  # group 2 arc 254
+    asyncio.run(bridge.on_state(change, LevelTracker().apply(change)))
+    lights = {a.display_name: a for a in bridge.accessories.values()}
+    assert lights["Group"].char_on.value is True and lights["Group"].char_brightness.value == 100
+    assert lights["Kitchen"].char_on.value is False

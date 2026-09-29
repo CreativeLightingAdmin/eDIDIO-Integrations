@@ -29,12 +29,16 @@ def _connection_config(knx) -> ConnectionConfig:
 async def run(config) -> None:
     """Start the dispatcher and KNX connection; block until cancelled."""
     ctrl = config.controller
-    dispatcher = EdidioDispatcher(ctrl.host, ctrl.port, use_tls=ctrl.use_tls, timeout=ctrl.timeout)
+    bridge = KnxBridge(config, None)
+    has_status = any(t.status_ga for t in config.group_map.values())
+    dispatcher = EdidioDispatcher(
+        ctrl.host, ctrl.port, use_tls=ctrl.use_tls, timeout=ctrl.timeout,
+        on_state=bridge.on_state if has_status else None)
+    bridge.dispatcher = dispatcher
     await dispatcher.start()
 
-    bridge = KnxBridge(config, dispatcher)
-
     xknx = XKNX(connection_config=_connection_config(config.knx))
+    bridge.set_sender(xknx.telegrams.put_nowait)
 
     # xknx invokes telegram-received callbacks synchronously (not awaited), so
     # this must be a plain function. bridge.handle_telegram is sync and hands the

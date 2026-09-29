@@ -63,6 +63,7 @@ enter the code. Your lights and scenes appear under the eDIDIO device. (Install
 | `host` | *(required)* | eDIDIO IP/hostname |
 | `port` | `23` | `23` = plain TCP, `443` = TLS |
 | `use_tls` | `false` | Connect over TLS |
+| `state_feedback` | `true` | Reflect the **real** levels from the controller's live event stream in the Home app (firmware ≥ 1.4.0) — follows wall panels, schedules, other apps |
 
 ### `accessories`
 | `type` | Fields | HomeKit |
