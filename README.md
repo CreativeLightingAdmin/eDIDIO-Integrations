@@ -5,10 +5,10 @@ Control Freak **eDIDIO** lighting controller (DALI, DMX, SpektraPlus) to a wide
 range of third-party platforms — from professional AV control systems and
 building automation to smart home, streaming, AI, game engines and DIY.
 
-> **Status:** ~40 integrations + recipes, **500+ automated tests across 34
-> suites, all green** (`run-all-tests.ps1` / `.sh`). Most are fully built and
-> tested here; a few are recipes (reusing gateways) or logic cores awaiting
-> vendor-tool packaging (noted per item).
+> **Status:** ~40 integrations + recipes, **630+ automated tests across 40
+> suites, all green** (`run-all-tests.ps1` / `.sh`, and CI on every push). Most are
+> fully built and tested here; a few are recipes (reusing gateways) or logic cores
+> awaiting vendor-tool packaging (noted per item).
 
 ## How it all fits together
 
@@ -17,9 +17,12 @@ everything, so behaviour is consistent everywhere:
 
 - **`edidio_control_py`** — the async Python client (in `../edidio_control_py`),
   base for all Python gateways/drivers. **0.4.0** adds *authoring* builders
-  (create sequences/themes/schedules) used by Spektra AI.
+  (create sequences/themes/schedules) used by Spektra AI. **0.5.0** adds the live
+  **event stream**, DALI **state** decoding, and the shared **gateway dispatcher**
+  every Python bridge now uses.
 - **JS protocol engine** — vendored into the Node integrations (message builder,
-  framing, connection with keep-alive/reconnect).
+  framing, connection with keep-alive/reconnect, and the event-stream decoder —
+  byte-for-byte cross-checked against the Python engine).
 - **Ten byte-identical encoders** — the same eDIDIO wire frames implemented in
   Python (protobuf + pure), JavaScript, Lua, NetLinx, C#, C++, **C**, **Tcl**,
   and a Savant payload generator — **all validated against the same reference
@@ -31,8 +34,33 @@ module (unit-tested) → async dispatcher → `edidio_control_py`**. The four
 game-state bridges (CS2, Dota 2, KSP, GTA5) and the ambient-data engine reuse it
 directly, which is why new sources are quick to add and testable without hardware.
 
+### Live state feedback (firmware ≥ 1.4.0)
+
+Integrations don't just send commands — they subscribe to the controller's pushed
+**event stream** and report the **real** light state, including changes made by
+wall panels, schedules, SpektraPlus or other apps:
+
+| Integration | Feedback |
+|---|---|
+| MQTT Bridge | real `state` / `brightness` topics for Home Assistant |
+| KNX Gateway | `status_ga` per level entry (DPT 1.001 / 5.001), answers GroupValueRead |
+| Modbus Gateway | input registers (FC4) mirror every address / group / broadcast level |
+| HomeKit Bridge / Homebridge | Home app On + Brightness follow the bus |
+| Companion | button feedbacks + `$(edidio:level_…)` variables |
+| REST API Gateway | `GET /controllers/:ip/state` + Server-Sent Events `/events` |
+| Prometheus Exporter | `edidio_dali_level`, event counters, health |
+
+### Shared code, one source of truth
+
+Hosts such as Extron ControlScript, Companion or SmartThings Edge can't install
+packages, so some code is **vendored** into several folders. The canonical copies
+live in **`shared/`** (`js-engine/`, `encoders/`); `tools/vendored.json` maps each
+to its copies. Edit under `shared/`, then run `python tools/sync_vendored.py` — CI
+runs it with `--check` and fails on drift.
+
 - **[ENCODERS.md](ENCODERS.md)** — the ten encoders + reference frames.
-- **`run-all-tests.ps1` / `run-all-tests.sh`** — run every suite at once.
+- **`run-all-tests.ps1` / `run-all-tests.sh`** — run every suite at once
+  (CI: `.github/workflows/tests.yml`).
 
 ## Integrations
 
@@ -53,7 +81,7 @@ directly, which is why new sources are quick to add and testable without hardwar
 | REST API Gateway | `Rest API Gateway/` | HTTP/JSON → eDIDIO (the hub many others use) |
 | Modbus TCP/RTU | `Modbus TCPRTUGateway/` | BMS/PLC register map |
 | KNX | `KNX Gateway/` | KNXnet/IP group addresses (+ test sender) |
-| Node-RED | `Note-RED Package/` | `node-red-contrib-edidio` nodes |
+| Node-RED | `Node-RED Package/` | `node-red-contrib-edidio` nodes |
 | Docker | `Docker/` | containerised Python gateways + compose |
 
 ### Smart home & IoT
@@ -61,6 +89,7 @@ directly, which is why new sources are quick to add and testable without hardwar
 |-------------|--------|-------|
 | MQTT Bridge | `MQTT Bridge/` | + Home Assistant auto-discovery |
 | Apple HomeKit | `HomeKit Bridge/` | local Siri + Home app |
+| Homebridge | `Homebridge Plugin/` | `homebridge-edidio` platform plugin (lights + scenes, live state) |
 | Matter | `Matter/` | recipe → Alexa+Google+Apple+SmartThings |
 | SmartThings Edge | `SmartThings Edge/` | on-hub Lua driver |
 
@@ -68,7 +97,7 @@ directly, which is why new sources are quick to add and testable without hardwar
 | Integration | Folder | Notes |
 |-------------|--------|-------|
 | **Spektra AI** | `Spektra AI/` | MCP server that **authors** sequences/themes/schedules from natural language (preview→confirm) |
-| MCP Server | `MCP Server/` | MCP server to *trigger* lighting (levels/scenes/Spektra) |
+| MCP Server (Lite) | `MCP Server/` | control-only MCP server (levels/scenes/Spektra) — a small, safe subset of Spektra AI |
 | Generative AI Moods | `GenAI Moods/` | text prompt → LLM colour palette → lighting |
 
 ### Streaming & messaging
@@ -120,10 +149,11 @@ directly, which is why new sources are quick to add and testable without hardwar
 |------|--------|-------|
 | Platform recipes | `Recipes/` | Loxone, openHAB, Hubitat, Niagara, Homey Pro, IFTTT/Zapier/Make |
 | Test Harness | `Test Harness/` | discover / connect / actuate against real hardware |
+| Prometheus Exporter | `Prometheus Exporter/` | controller health + live DALI levels as metrics (Grafana / alerting) |
 
 ## Hardware verification status
 
-Every integration has an automated test suite (~500 tests, all passing — see below).
+Every integration has an automated test suite (630+ tests, all passing — see below).
 Beyond that, the table records how far each has been **verified against a live
 eDIDIO controller** (an S10, with a DMX sniffer on Line 2 and a DALI sniffer on
 Line 1). Live output was confirmed two ways: reading the controller's own DMX/DALI
@@ -161,9 +191,15 @@ Legend:
 | HomeKit Bridge | 🟡 | Light/scene accessory specs → DALI to the device; iOS HAP pairing not run |
 | Telegram Bot | 🟡 | Vendored engine frame-verified; live Telegram API token not exercised |
 | Twitch Bot | 🟡 | Vendored engine frame-verified; live Twitch account not exercised |
-| Companion / Stream Deck / Note-RED | 🟡 | Frame-verified; run inside their host apps (not driven from a PC here) |
+| Companion / Stream Deck / Node-RED | 🟡 | Frame-verified; run inside their host apps (not driven from a PC here) |
 | RTI / Extron / AMX / ELAN / Savant / SmartThings | 🧪 | Encoders frame-verified against shared reference frames; need dealer/host tooling |
 | Unity / FPGA (C+Verilog) / Maker (Arduino, Pi) | 🧪 | Encoders frame-verified; run on their target hardware/engine |
+| Engine 0.5.0 event stream + state | ✅ | fw 1.6.2, DALI on Line 1: address/group/broadcast arc, OFF, MAX, scene → one state change each (TX ATTEMPT ignored, TX SUCCESS + RX echo de-duplicated); with bus power off every TX reported TIMEOUT and correctly produced no state. Traffic from **another DALI source** (RX only) tracked, queries ignored. **Two network-cable pulls**: loss detected via keep-alive, auto-reconnected + resubscribed, events flowed again |
+| MQTT / KNX / Modbus live feedback | ✅ | Real `EdidioDispatcher` → controller → event stream: MQTT state/brightness topics, KNX status GAs (DPT 1.001/5.001), Modbus FC4 read over TCP — incl. a Modbus holding-register write round-tripping via the bus into the input register. External transports (broker, KNX bus) not exercised |
+| REST API Gateway live state | ✅ | `POST /dali/level` → device; SSE `/events` delivered one `state` per change; `GET /state`; read-only key refused a write (403) |
+| Companion feedback / Homebridge Plugin | 🟡 | Their connection + state code driven against the device (Companion variables/feedback; Homebridge tile followed an OFF sent from another client); not run inside Companion / Homebridge |
+| HomeKit Bridge live state | 🟡 | Shares the verified dispatcher path; accessory updates covered by tests; iOS pairing not run |
+| Prometheus Exporter | ✅ | Scraped live: `edidio_up`, `edidio_info` (fw 1.6.2), config counts, event counters, `edidio_dali_level` |
 
 ¹ The Teams app was driven with a payload signed exactly as Microsoft's Outgoing
 Webhook servers sign theirs (HMAC-SHA256), so signature verification, `@mention`
@@ -186,8 +222,10 @@ Run **everything** at once:
 pwsh ./run-all-tests.ps1        # Windows (handles the py -3 launcher + msys2 toolchain)
 ```
 ```bash
-./run-all-tests.sh              # macOS/Linux
+./run-all-tests.sh              # macOS/Linux (and CI)
 ```
+
+The run also checks that every vendored copy matches its `shared/` source.
 
 Or per integration (from its folder): `python -m pytest -q`, `node --test` /
 `npm test`, `dotnet test` (Unity C#), `gcc`/`g++` (FPGA/Maker encoders), `tclsh`

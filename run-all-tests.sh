@@ -28,21 +28,35 @@ py_suite() { # dir [pytest-args...]
 for d in "Ambient Data" "CS2 GSI" "Dota 2 GSI" "GTA5" "GenAI Moods" "HomeKit Bridge" \
          "KNX Gateway" "Kerbal Space Program" "MCP Server" "MIDI Bridge" "MQTT Bridge" \
          "Modbus TCPRTUGateway" "OSC Bridge" "Spektra AI" "Extron Driver" \
-         "SmartThings Edge" "Savant Driver" "ELAN Driver"; do
+         "SmartThings Edge" "Savant Driver" "ELAN Driver" "Prometheus Exporter"; do
   py_suite "$d"
 done
 py_suite "AMX Driver" muse netlinx
 py_suite "Maker Kit/raspberry-pi"
-[ -d "$root/../edidio_control_py/tests" ] && ( cd "$root/../edidio_control_py" && python3 -m pytest -q >/tmp/ed_out 2>&1 ) && record "py: edidio_control_py" 1 "$(grep -oE '[0-9]+ passed' /tmp/ed_out | tail -1)"
+if [ -d "$root/../edidio_control_py/tests" ]; then
+  ( cd "$root/../edidio_control_py" && python3 -m pytest -q >/tmp/ed_out 2>&1 )
+  record "py: edidio_control_py" "$([ $? -eq 0 ] && echo 1 || echo 0)" "$(grep -oE '[0-9]+ passed' /tmp/ed_out | tail -1)"
+fi
 
 for d in "Companion Module" "RTI Driver" "Stream Deck Plugin" "Raycast Alfred" \
-         "OBS Studio" "Twitch Bot" "Telegram Bot" "Slack App" "Teams App"; do
+         "OBS Studio" "Twitch Bot" "Telegram Bot" "Slack App" "Teams App" \
+         "Rest API Gateway" "Homebridge Plugin" "shared/js-engine"; do
   if [ -d "$root/$d" ]; then
     ( cd "$root/$d"; [ -f package.json ] && [ ! -d node_modules ] && npm install --silent >/dev/null 2>&1; node --test >/tmp/ed_out 2>&1 )
     ok=$([ $? -eq 0 ] && echo 1 || echo 0)
     record "node: $d" "$ok" "$(grep -oE 'pass [0-9]+' /tmp/ed_out | tail -1)"
   fi
 done
+
+# Node-RED (mocha)
+if [ -d "$root/Node-RED Package" ]; then
+  ( cd "$root/Node-RED Package"; [ ! -d node_modules ] && npm install --silent >/dev/null 2>&1; npm test >/tmp/ed_out 2>&1 )
+  record "node: Node-RED" "$([ $? -eq 0 ] && echo 1 || echo 0)" "$(grep -oE '[0-9]+ passing' /tmp/ed_out | tail -1)"
+fi
+
+# Vendored copies must match their shared/ sources
+( cd "$root" && python3 tools/sync_vendored.py --check >/tmp/ed_out 2>&1 )
+record "vendored: shared/ in sync" "$([ $? -eq 0 ] && echo 1 || echo 0)" "$(head -1 /tmp/ed_out)"
 
 # C / C++ / Tcl encoders
 if command -v gcc >/dev/null; then

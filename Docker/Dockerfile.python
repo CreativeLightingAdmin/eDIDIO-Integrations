@@ -1,4 +1,5 @@
-# Shared image for the Python eDIDIO gateways (Modbus, MQTT, KNX, HomeKit, OSC).
+# Shared image for the Python eDIDIO gateways (Modbus, MQTT, KNX, HomeKit, OSC,
+# Prometheus exporter).
 #
 # Build context is the repo root so the gateway source is available. Select the
 # gateway with the GATEWAY build arg, e.g.:

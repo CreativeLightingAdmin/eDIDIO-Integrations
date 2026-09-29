@@ -34,10 +34,10 @@ in the palette.
 ### Local install (development)
 
 ```bash
-cd "Note-RED Package"
+cd "Node-RED Package"
 npm install
 # then, from your Node-RED user dir:
-npm install /path/to/Note-RED\ Package
+npm install /path/to/Node-RED\ Package
 ```
 
 ## Quick start

@@ -18,7 +18,10 @@ services:
     environment:
       EDIDIO_IP: "192.168.1.50"
       EDIDIO_USE_TLS: "false"
-      # EDIDIO_API_KEY: "change-me"
+      # Keys come from Docker/.env (gitignored). The gateway refuses to start
+      # without EDIDIO_API_KEY because it listens on all interfaces here.
+      EDIDIO_API_KEY: "${EDIDIO_API_KEY:-}"
+      EDIDIO_READ_API_KEY: "${EDIDIO_READ_API_KEY:-}"
     restart: unless-stopped
 
   modbus:
@@ -84,6 +87,19 @@ services:
     volumes:
       - ./config/homekit.yaml:/config/config.yaml:ro
       - homekit_state:/data
+    restart: unless-stopped
+
+  prometheus-exporter:
+    build:
+      context: ..
+      dockerfile: Docker/Dockerfile.python
+      args:
+        GATEWAY: "Prometheus Exporter"
+    image: edidio-prometheus-exporter
+    ports:
+      - "9464:9464"
+    volumes:
+      - ./config/prometheus.yaml:/config/config.yaml:ro
     restart: unless-stopped
 
 volumes:

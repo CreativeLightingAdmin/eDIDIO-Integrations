@@ -1,4 +1,13 @@
-# eDIDIO MCP Server
+# eDIDIO MCP Server (Lite)
+
+> **This is the lite, control-only server.** For inspecting, authoring
+> (sequences/themes/schedules with preview → confirm), `.spektra` project files,
+> DALI commissioning, live events and diagnostics, use
+> **[Spektra AI](../Spektra%20AI/)** — it is a superset of these tools.
+>
+> Choose Lite when you want a small, fixed tool surface that can only *operate*
+> lights (no configuration writes) — e.g. a kiosk, a demo, or giving an assistant
+> safe day-to-day control.
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server that exposes
 Control Freak **eDIDIO** lighting control as tools for AI assistants — so

@@ -23,7 +23,7 @@ $pyRoots = @(
     "Ambient Data", "CS2 GSI", "Dota 2 GSI", "GTA5", "GenAI Moods", "HomeKit Bridge",
     "KNX Gateway", "Kerbal Space Program", "MCP Server", "MIDI Bridge", "MQTT Bridge",
     "Modbus TCPRTUGateway", "OSC Bridge", "Spektra AI", "Extron Driver",
-    "SmartThings Edge", "Savant Driver"
+    "SmartThings Edge", "Savant Driver", "Prometheus Exporter"
 )
 foreach ($r in $pyRoots) {
     $p = Join-Path $root $r
@@ -52,12 +52,13 @@ if (Test-Path (Join-Path $lib "tests")) {
 
 # --- Node (node --test) suites ---
 $nodeRoots = @("Companion Module", "RTI Driver", "Stream Deck Plugin", "Raycast Alfred",
-               "OBS Studio", "Twitch Bot", "Telegram Bot", "Slack App", "Teams App")
+               "OBS Studio", "Twitch Bot", "Telegram Bot", "Slack App", "Teams App",
+               "Rest API Gateway", "Homebridge Plugin", "shared\js-engine")
 foreach ($r in $nodeRoots) {
     $p = Join-Path $root $r
     if (Test-Path $p) {
         Push-Location $p
-        if ((Test-Path "package.json") -and -not (Test-Path "node_modules") -and ($r -in @("OBS Studio","Twitch Bot","Telegram Bot","Slack App","Teams App","Companion Module"))) {
+        if ((Test-Path "package.json") -and -not (Test-Path "node_modules") -and ($r -in @("OBS Studio","Twitch Bot","Telegram Bot","Slack App","Teams App","Companion Module","Rest API Gateway"))) {
             & npm install --silent --no-audit --no-fund 2>&1 | Out-Null
         }
         $o = & node --test 2>&1 | Out-String
@@ -70,10 +71,10 @@ foreach ($r in $nodeRoots) {
 
 # --- Node-RED (mocha) ---
 if (-not $Quick) {
-    Push-Location (Join-Path $root "Note-RED Package")
+    Push-Location (Join-Path $root "Node-RED Package")
     if (-not (Test-Path "node_modules")) { & npm install --silent --no-audit --no-fund 2>&1 | Out-Null }
     $o = & npm test 2>&1 | Out-String
-    Record "node: Note-RED" ($o -match "passing") (($o | Select-String "passing") -join ""); Pop-Location
+    Record "node: Node-RED" ($o -match "passing") (($o | Select-String "passing") -join ""); Pop-Location
 }
 
 # --- C encoders (gcc) ---
@@ -102,6 +103,12 @@ if (-not $Quick -and (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Push-Location (Join-Path $root "Unity Package\_test")
     $o = & dotnet test 2>&1 | Out-String; Record "csharp: Unity" ($o -match "Passed!") (($o | Select-String "Passed:") -join ""); Pop-Location
 }
+
+# --- vendored copies must match shared/ ---
+Push-Location $root
+$o = & py -3 tools/sync_vendored.py --check 2>&1 | Out-String
+Record "vendored: shared/ in sync" ($LASTEXITCODE -eq 0) ($o.Trim() -split "`n")[0]
+Pop-Location
 
 # --- summary ---
 Write-Host "`n================= SUMMARY ================="

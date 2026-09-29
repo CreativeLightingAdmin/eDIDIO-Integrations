@@ -11,6 +11,7 @@ instead of per-machine Python/Node setup.
 | `osc` | OSC Bridge | 8000/udp |
 | `knx` | KNX Gateway | (KNXnet/IP) |
 | `homekit` | HomeKit Bridge | host network (mDNS) |
+| `prometheus-exporter` | Prometheus Exporter | 9464/tcp |
 
 ## Quick start
 
@@ -20,8 +21,12 @@ cp "../MQTT Bridge/config.example.yaml"        config/mqtt.yaml
 cp "../Modbus TCPRTUGateway/config.example.yaml" config/modbus.yaml
 cp "../OSC Bridge/config.example.yaml"         config/osc.yaml
 cp "../KNX Gateway/config.example.yaml"        config/knx.yaml
+cp "../Prometheus Exporter/config.example.yaml" config/prometheus.yaml
 # homekit.yaml is already provided; edit the controller host.
 # Edit each file's controller.host (and the REST env in docker-compose.yml).
+
+# REST gateway API keys (required — it refuses to start without one):
+printf 'EDIDIO_API_KEY=%s\nEDIDIO_READ_API_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 24)" > .env
 
 # 2. Build + run one (or more) services:
 docker compose up -d mqtt

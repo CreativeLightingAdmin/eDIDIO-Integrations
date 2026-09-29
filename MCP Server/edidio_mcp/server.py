@@ -24,7 +24,8 @@ server = MCPServer(
         "Control Freak eDIDIO architectural lighting control. Tools drive DALI "
         "lights and groups, recall scenes, paint DMX colours, and run SpektraPlus "
         "effects. 'line' is a physical output 1-4; DALI address is 0-63; group and "
-        "scene are 0-15; level is 0-254 (0=off, 254=full)."
+        "scene are 0-15; level is 0-254 (0=off, 254=full). This is the lite, "
+        "control-only server; authoring and configuration live in Spektra AI."
     ),
 )
 
