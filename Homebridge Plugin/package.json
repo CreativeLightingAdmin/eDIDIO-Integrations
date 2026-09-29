@@ -1,0 +1,22 @@
+{
+  "name": "homebridge-edidio",
+  "displayName": "eDIDIO",
+  "version": "1.0.0",
+  "description": "Control Freak eDIDIO lighting (DALI lights + scenes) in Apple Home via Homebridge, with live state from the controller.",
+  "main": "index.js",
+  "author": "Michael Howes",
+  "license": "MIT",
+  "keywords": ["homebridge-plugin", "homebridge", "edidio", "dali", "lighting"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CreativeLightingAdmin/eDIDIO-Integrations.git"
+  },
+  "engines": {
+    "homebridge": "^1.6.0 || ^2.0.0",
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "files": ["index.js", "lib/", "config.schema.json", "README.md"]
+}

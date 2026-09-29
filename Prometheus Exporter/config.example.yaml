@@ -1,0 +1,24 @@
+# eDIDIO Prometheus exporter configuration.
+#
+# Copy to `config.yaml` and edit. Prometheus scrapes http://<host>:9464/metrics.
+
+listen:
+  host: 0.0.0.0
+  port: 9464
+
+# Health polls (DIAGNOSTIC_SYSTEM_INFO) are cached for this many seconds, so a
+# short scrape_interval doesn't hammer the controllers.
+min_poll_interval: 10
+
+# One entry per controller. `name` becomes the `controller` label.
+controllers:
+  - name: level-8-main
+    host: 192.168.1.50
+    port: 23             # 23 = plain TCP, 443 = TLS
+    use_tls: false
+    timeout: 5.0
+    # Live DALI levels + event counters via the event stream (firmware >= 1.4.0).
+    events: true
+
+  # - name: level-8-rooms
+  #   host: 192.168.1.51
