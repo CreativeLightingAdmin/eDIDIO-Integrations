@@ -12,4 +12,4 @@ PyYAML>=6.0
 # The shared eDIDIO Python protocol engine (>=0.3.0 adds group levels, scene
 # recall and Spektra control used by this gateway). Install locally in editable
 # mode during development: `pip install -e ../../edidio_control_py`.
-edidio_control_py>=0.4.0
+edidio_control_py>=0.5.0

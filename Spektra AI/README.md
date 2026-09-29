@@ -11,8 +11,12 @@ and troubleshoot — in plain language:
 > goes idle."*
 
 > **Target:** the SpektraPlus authoring/configuration surface.
-> **Tech:** Python MCP SDK + `edidio_control_py` engine + a namespaced copy of the
-> current eDS10 protobuf for the v2 event stream.
+> **Tech:** Python MCP SDK + `edidio_control_py` engine (≥ 0.5.0, which provides
+> the v2 event stream).
+>
+> Only need to *operate* lights (levels, scenes, effects) with no configuration
+> writes? The control-only **[MCP Server (Lite)](../MCP%20Server/)** is a smaller,
+> fixed tool surface.
 
 ## What it can do
 
@@ -126,14 +130,13 @@ Spektra AI/
 │   ├── spektra_diff.py      # section-aware structural diff
 │   ├── sync.py              # hash-based sync detection + v3 syncData ledger
 │   ├── dali.py              # DALI query/commission/groups/scenes/fade/DT8
-│   ├── event_stream.py      # live event subscription (firmware-gated)
-│   ├── event_stream_v2.py   # EventStreamMessage (tag 77) encode/decode
+│   ├── event_stream.py      # live events (re-exports edidio_control_py.events)
+│   ├── event_stream_v2.py   # v2 encode/decode names (re-exports the engine)
 │   ├── event_log.py         # parse exported event logs + stuck-on diagnosis
 │   ├── notify.py            # out-of-band notifications (log/webhook/email)
 │   ├── capability_guide.py  # guide generated from protobuf descriptors
 │   ├── discovery.py         # LAN discovery
-│   ├── templates/           # bundled controller template (device skeleton)
-│   └── _v2/                 # namespaced current-proto module (event stream v2)
+│   └── templates/           # bundled controller template (device skeleton)
 ├── tools/build_alma.py      # example: generate a project from a functionality statement
 ├── CAPABILITY_GUIDE.md      # generated snapshot of the guide
 └── tests/                   # 156 tests (stub clients + real-file fixtures)
@@ -149,9 +152,9 @@ Spektra AI/
   controller template; each controller's `network.mac` must match its `edidios` key.
 - Fixed-slot sections (schedules, lists, logicActions, burnIns, inputs, outputs)
   carry their full slot count (configured + disabled blanks).
-- The v2 event proto is compiled to `_v2/eDS10_v2_pb2.py` (package `edidiov2`) from the
-  current `.proto` so it coexists with the engine's older protobuf. Regenerate with
-  `protoc --python_out=edidio_spektra_ai/_v2 --proto_path=edidio_spektra_ai/_v2 eDS10_v2.proto`.
+- The live event stream (v2 subscribe, legacy REGISTER, decode, reconnect) lives in
+  the engine since `edidio_control_py` 0.5.0 (`edidio_control_py.events`, with the
+  namespaced v2 proto in `edidio_control_py._v2`), so every gateway shares it.
 
 ## License
 

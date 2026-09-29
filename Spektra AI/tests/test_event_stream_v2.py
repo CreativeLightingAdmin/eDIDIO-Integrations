@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from edidio_spektra_ai import event_stream as esmod
 from edidio_spektra_ai import event_stream_v2 as v2
-from edidio_spektra_ai._v2 import eDS10_v2_pb2 as pb2
+from edidio_control_py._v2 import eDS10_v2_pb2 as pb2
 
 
 def test_categories_to_mask_includes_event_bit():
@@ -21,8 +21,8 @@ def test_categories_empty_is_all():
 
 
 def test_describe_dali_frame_min_max():
-    assert v2.describe_dali_frame(0xFF06, 4) == "broadcast MIN_LEVEL"
-    assert v2.describe_dali_frame(0xFF05, 4) == "broadcast MAX_LEVEL"
+    assert v2.describe_dali_frame(0xFF06, 4, 1) == "broadcast MIN_LEVEL"   # RX 16-bit
+    assert v2.describe_dali_frame(0xFF05, 1) == "broadcast MAX_LEVEL"      # TX 16-bit
 
 
 def test_build_subscribe_roundtrips():
@@ -78,7 +78,7 @@ def test_stream_buffers_v2_events():
         bodies = [
             _body(pb2.EventStreamMessage(ack=True)),                       # skipped
             _body(pb2.EventStreamMessage(sequence=1, category=3,
-                  dali=pb2.DaliFrame(frame=0xFF05, frame_type=4))),
+                  dali=pb2.DaliFrame(frame=0xFF05, frame_type=4, direction=1))),
             _body(pb2.EventStreamMessage(sequence=2, category=10,
                   input=pb2.InputEvent(input_index=3, press_type=1))),
         ]

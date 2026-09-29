@@ -9,15 +9,15 @@ description = "Spektra AI - MCP server for authoring/controlling Control Freak e
 requires-python = ">=3.10"
 dependencies = [
     "mcp>=2.0",
-    "edidio_control_py>=0.4.0",
-    "protobuf>=4.0",
+    "edidio_control_py>=0.5.0",
+    "protobuf>=5.29.2",
 ]
 
 [project.scripts]
 edidio-spektra-ai = "edidio_spektra_ai.__main__:main"
 
 [tool.setuptools]
-packages = ["edidio_spektra_ai", "edidio_spektra_ai._v2"]
+packages = ["edidio_spektra_ai"]
 
 [tool.setuptools.package-data]
 edidio_spektra_ai = ["templates/*.spektra", "templates/*.spektratpl.spektra"]

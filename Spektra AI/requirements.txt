@@ -3,5 +3,5 @@ mcp>=2.0              # Model Context Protocol SDK (MCPServer)
 # Shared eDIDIO Python protocol engine (>=0.4.0 for authoring builders).
 # Install locally in editable mode during development:
 #   pip install -e ../../edidio_control_py
-edidio_control_py>=0.4.0
-protobuf>=4.0          # used directly by the v2 event-stream module (_v2/eDS10_v2_pb2)
+edidio_control_py>=0.5.0
+protobuf>=5.29.2       # protobuf runtime for the engine's generated message modules
