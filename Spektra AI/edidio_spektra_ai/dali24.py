@@ -92,8 +92,13 @@ async def _send(ctrl, line: int, value: int, *, reply: bool, twice: bool = False
 
 
 async def query(ctrl, line: int, address: int, instance: int, opcode: int):
-    """One 24-bit query -> the reply byte, or None (no reply)."""
-    r = await _send(ctrl, line, frame(address, instance, opcode), reply=True)
+    """One 24-bit query -> the reply byte, or None (no reply). These queries use no
+    DTR, so a timeout is simply asked again once."""
+    from edidio_control_py.exceptions import EDIDIOTimeoutError
+    try:
+        r = await _send(ctrl, line, frame(address, instance, opcode), reply=True)
+    except EDIDIOTimeoutError:
+        r = await _send(ctrl, line, frame(address, instance, opcode), reply=True)
     if r.WhichOneof("payload") != "dali_query":
         return None
     q = r.dali_query

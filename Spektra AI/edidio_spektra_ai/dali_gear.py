@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 
 from edidio_control_py._v2 import eDS10_v2_pb2 as pb
+from edidio_control_py.exceptions import EDIDIOTimeoutError
 
 from . import v2
 
@@ -87,8 +88,13 @@ async def _frame(ctrl, line, frame16, reply):
 
 
 async def query(ctrl, line: int, address: int, opcode: int, retries: int = 3):
+    """One query; no reply or a timeout is retried (these queries use no DTR)."""
     for _ in range(retries + 1):
-        v = await _frame(ctrl, line, (target_byte(address, query=True) << 8) | opcode, True)
+        try:
+            v = await _frame(ctrl, line, (target_byte(address, query=True) << 8) | opcode,
+                             True)
+        except EDIDIOTimeoutError:
+            continue
         if v is not None:
             return v
     return None

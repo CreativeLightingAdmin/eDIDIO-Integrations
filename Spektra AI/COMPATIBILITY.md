@@ -50,6 +50,9 @@ hardware, and what is still to do.
   translations, burn-ins, zones, names, device/network/clock settings, line types.
 - Health check, diagnostics, device log, SD card listing/reading/search, and
   decoding of the binary DALI bus logs (DAL_*.BIN) and event logs (EVT_*.BIN).
+- Bench test (`tools/bench_test.py`): eDIDIO 1.6.3 over TLS, 60/60 with the
+  reversible writes; ADDICT 3.9.3, 43 passed, 3 skipped (no device log, DALI
+  status cache or SD card), over 3 runs in a row.
 - Background event recorder: kept recording after the launching process exited,
   captured DALI frames, sensor events and connections, and stopped on request.
 - Live state, `run_command`, profile changes, live colour on DMX and DALI zones,
@@ -80,6 +83,12 @@ hardware, and what is still to do.
 
 ## Behaviour to know (not faults)
 
+- An ADDICT on Wi-Fi sometimes leaves a request unanswered for longer than the
+  5 s timeout (ping varies 17-330 ms). Reads are resent once, and DALI queries
+  repeat their whole DTR / ENABLE sequence, so this rarely shows. DALI memory reads
+  are never resent on their own, because each one moves the gear's DTR0 pointer.
+- SD log file dates follow the controller clock, and file numbers wrap at 10000. The
+  file being written is the one named in `logs/LOGMETA.DAT`.
 - A DT8 driver moves an xy point that is outside its gamut to the nearest colour it
   can make and sets "xy out of range" (colour temperature outside its range is
   clamped the same way). SpektraPlus's xy conversion uses very wide primaries, so

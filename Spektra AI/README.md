@@ -14,6 +14,10 @@ and troubleshoot — in plain language:
 > **Tech:** Python MCP SDK + `edidio_control_py` engine (≥ 0.5.1: protocol 1.3.2
 > and the full event stream).
 >
+> **New here?** The [user guide](docs/USER_GUIDE.md) covers installing, connecting
+> an AI client, the ideas behind it, worked examples, the background recorder and
+> the bench test.
+>
 > **Compatibility, what is verified on hardware, and what is still to do:** see
 > [COMPATIBILITY.md](COMPATIBILITY.md). **Every tool, grouped by task:** the
 > capability guide ([CAPABILITY_GUIDE.md](CAPABILITY_GUIDE.md)), which the assistant
@@ -236,11 +240,29 @@ Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
 
 Restart Claude Desktop; the Spektra AI tools + the capability guide appear.
 
+### Use with Claude Code
+
+```bash
+python -m pip install -e .          # once, from this folder
+claude mcp add spektra-ai -- python -m edidio_spektra_ai
+```
+
 ## Testing
 
 ```bash
-python -m pytest -q     # 205 tests, no controller required
+python -m pytest -q     # unit tests, no controller required
 ```
+
+**Bench test against a real controller** (read-only unless `--writes`):
+
+```bash
+python tools/bench_test.py --host 192.168.1.50 --tls --report bench.md
+python tools/bench_test.py --host 192.168.1.50 --tls --writes --address 0
+```
+
+It runs the tools and reports PASS / FAIL / SKIP for each. `--writes` adds a scene
+store/remove and a power-on change/restore on one DALI fitting, each read back and
+left as found. See the [user guide](docs/USER_GUIDE.md#10-the-bench-test).
 
 Everything is verified with **no controller** (stub clients + real-file fixtures).
 `tests/test_sync_parity.py` pins hashes produced by SpektraPlus's own

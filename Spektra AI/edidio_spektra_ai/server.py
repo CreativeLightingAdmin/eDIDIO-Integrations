@@ -634,11 +634,15 @@ async def recent_events(since_seq: int = 0, limit: int = 50) -> str:
     if not events:
         return (f"No new events (watching {', '.join(info.get('categories', []))}; "
                 f"last_seq {info['last_seq']}).")
+    from .recorder import describe
     lines = [f"{len(events)} event(s) (last_seq {info['last_seq']}):"]
     for e in events:
-        detail = ", ".join(f"{k}={v}" for k, v in e.items()
-                           if k not in ("seq", "at", "event", "kind"))
-        lines.append(f"  [{e['seq']}] {e.get('kind', e['event'])}: {detail}")
+        if isinstance(e.get("event"), str):       # legacy firmware: raw fields
+            detail = ", ".join(f"{k}={v}" for k, v in e.items()
+                               if k not in ("seq", "at", "event", "kind"))
+            lines.append(f"  [{e['seq']}] {e.get('kind', e['event'])}: {detail}")
+        else:
+            lines.append(f"  [{e['seq']}] {describe(e)}")
     return "\n".join(lines)
 
 

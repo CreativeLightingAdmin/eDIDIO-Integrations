@@ -143,11 +143,20 @@ async def _f16(ctrl, line, frame16, reply):
     return q.response_data.uint_data
 
 
-async def _dt8_query(ctrl, line, address, opcode, selector=None):
-    if selector is not None:
-        await _f16(ctrl, line, 0xA300 | selector, reply=False)       # DTR0 = selector
-    await _f16(ctrl, line, _ENABLE_DT8, reply=False)
-    return await _f16(ctrl, line, ((address << 1) | 1) << 8 | opcode, reply=True)
+async def _dt8_query(ctrl, line, address, opcode, selector=None, attempts=3):
+    """DTR0 = selector (if any), ENABLE DT8, query. A timeout repeats the whole
+    sequence, so the gear's DTR0 and DT8 state are set again before the query."""
+    from edidio_control_py.exceptions import EDIDIOTimeoutError
+    for n in range(attempts):
+        try:
+            if selector is not None:
+                await _f16(ctrl, line, 0xA300 | selector, reply=False)   # DTR0 = selector
+            await _f16(ctrl, line, _ENABLE_DT8, reply=False)
+            return await _f16(ctrl, line, ((address << 1) | 1) << 8 | opcode, reply=True)
+        except EDIDIOTimeoutError:
+            if n == attempts - 1:
+                raise
+    return None
 
 
 _Q_CONTENT_DTR0 = 0x98
@@ -161,7 +170,13 @@ async def _dt8_query16(ctrl, line, address, selector):
     msb = await _dt8_query(ctrl, line, address, _Q_COLOUR_VALUE, selector)
     if msb is None:
         return None
-    lsb = await _f16(ctrl, line, ((address << 1) | 1) << 8 | _Q_CONTENT_DTR0, reply=True)
+    from edidio_control_py.exceptions import EDIDIOTimeoutError
+    try:
+        lsb = await _f16(ctrl, line, ((address << 1) | 1) << 8 | _Q_CONTENT_DTR0, reply=True)
+    except EDIDIOTimeoutError:                    # DTR0 may be gone: redo the pair
+        msb = await _dt8_query(ctrl, line, address, _Q_COLOUR_VALUE, selector)
+        lsb = await _f16(ctrl, line, ((address << 1) | 1) << 8 | _Q_CONTENT_DTR0,
+                         reply=True) if msb is not None else None
     if lsb is None:
         return None
     v = (msb << 8) | lsb

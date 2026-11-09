@@ -31,6 +31,8 @@ _OUTPUT_MODES = {"momentary": 2, "latching": 3}
 
 
 def _err(err) -> str:
+    if isinstance(err, ops.Unsupported):
+        return f"Not supported by this controller: {err}."
     return f"Error: {err}"
 
 

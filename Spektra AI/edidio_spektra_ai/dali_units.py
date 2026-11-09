@@ -14,6 +14,7 @@ address first), and groups/scenes live in the gear, so they move with the channe
 from __future__ import annotations
 
 from edidio_control_py._v2 import eDS10_v2_pb2 as pb
+from edidio_control_py.exceptions import EDIDIOTimeoutError
 
 from . import v2
 
@@ -23,8 +24,13 @@ _UNITS, _INDEX = 0x19, 0x1A
 
 
 async def _byte(ctrl, line, address, loc, retries=3):
+    """One memory-bank byte; a missed reply or a timeout is retried. (An ADDICT can
+    take several seconds to answer the first reads on a new connection.)"""
     for _ in range(retries):
-        v = await ctrl.dali_read_memory_byte(line, address, 0, loc)
+        try:
+            v = await ctrl.dali_read_memory_byte(line, address, 0, loc)
+        except EDIDIOTimeoutError:
+            continue
         if v is not None:
             return v
     return None

@@ -106,3 +106,19 @@ def test_run_loop_stops_on_request(tmp_path, monkeypatch):
 def test_safe_name():
     assert R.safe_name("192.168.1.5") == "192.168.1.5"
     assert R.safe_name("Plant room / A") == "Plant_room_A"
+
+
+def test_recent_events_formats_v2_events(monkeypatch):
+    from edidio_spektra_ai import server as S
+    evs = [{"seq": 1, "kind": "dali", "line": 0, "direction": 1, "frame_type": 6,
+            "status": 0, "frame": 0, "at": 0},
+           {"seq": 2, "kind": "net", "event": 4, "event_name": "TLS_CONNECT",
+            "client_ip": "10.0.0.2",
+            "client_port": 5000, "at": 0},
+           {"seq": 3, "event": "SENSOR", "kind": "sensor", "index": 0, "at": 0}]
+    monkeypatch.setattr(S._controller, "recent_events", lambda s, n: {
+        "watching": True, "categories": ["dali"], "events": evs, "last_seq": 3})
+    out = asyncio.run(S.recent_events())
+    assert "[1] DALI L1 RX !! partial frame" in out
+    assert "[2] network: TLS_CONNECT 10.0.0.2:5000" in out
+    assert "[3] sensor: index=0" in out

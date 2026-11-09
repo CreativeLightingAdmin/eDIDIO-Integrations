@@ -144,7 +144,8 @@ def _health_findings(r: dict) -> list:
                 out.append((lvl, f"DALI line {n}: " + ", ".join(bits)))
         if not polling:
             out.append(("info", "DALI status polling is off, so gear counts and lamp "
-                                "failures are not monitored (set_dali_polling to turn it on)"))
+                                "failures are not monitored (preview_device_settings "
+                                "with dali_polling true turns it on)"))
     st = r.get("STORAGE_DIAGNOSTICS") or {}
     if st and not st.get("unsupported"):
         out.append(("info", "storage: " + ", ".join(f"{k}={v}" for k, v in list(st.items())[:6])))

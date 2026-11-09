@@ -254,3 +254,32 @@ def test_dali_gear_encoding():
     code = g.extended_fade_code(30)
     assert g.extended_fade_seconds(code) == 30.0
     assert g.extended_fade_seconds(g.extended_fade_code(0.5)) == 0.5
+
+
+def test_read_retry_only_resends_reads():
+    import asyncio
+    from edidio_control_py.exceptions import EDIDIOTimeoutError
+    from edidio_control_py._v2 import eDS10_v2_pb2 as pb
+    from edidio_spektra_ai import controller as C, v2
+
+    class Client:
+        def __init__(self):
+            self.calls = 0
+
+        async def request(self, message):
+            self.calls += 1
+            if self.calls == 1:
+                raise EDIDIOTimeoutError("slow")
+            return "reply"
+
+    get = v2.frame(v2.admin(1, "GET", "DEVICE_NAME"))
+    c = C._retry_reads(Client())
+    assert asyncio.run(c.request(get)) == "reply" and c.calls == 2
+    dali = v2.frame(pb.EdidioMessage(message_id=2, dali_message=pb.DALIMessage(
+        line_mask=1, frame_16_bit_reply=0x01A0)))
+    c = C._retry_reads(Client())
+    try:
+        asyncio.run(c.request(dali))
+        raise AssertionError("a DALI frame must not be resent")
+    except EDIDIOTimeoutError:
+        assert c.calls == 1

@@ -20,6 +20,8 @@ from edidio_control_py import (
     ReadType,
     SpektraTargetType,
 )
+from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+from edidio_control_py.exceptions import EDIDIOTimeoutError
 
 from . import dali, discovery, spektra_map, v2
 from .event_stream import DEFAULT_CATEGORIES, EventStream
@@ -59,6 +61,42 @@ def _default_factory(host, port, use_tls):
 
 CONNECT_ATTEMPTS = 3   # an ADDICT on Wi-Fi sometimes misses the first SYN
 
+# Requests that only read, so resending one after a timeout is harmless (replies are
+# matched by message id, so a late answer to the first try is skipped). DALI frames
+# are excluded: a memory-bank read moves the gear's DTR0 pointer, so a resend would
+# read the next byte - those callers retry the whole DTR + read sequence instead.
+_READ_PAYLOADS = {"read_device", "spektra_read", "input_request", "logs_read",
+                  "metadata_read", "sd_dir_list", "sd_file_read", "connection_status",
+                  "spektra_manifest", "crash_log"}
+
+
+def _is_read(message: bytes) -> bool:
+    try:
+        m = v2pb.EdidioMessage()
+        m.ParseFromString(bytes(message[3:]))
+    except Exception:  # noqa: BLE001
+        return False
+    which = m.WhichOneof("payload")
+    if which == "admin_message":
+        return m.admin_message.command == v2pb.AdminCommandType.GET
+    return which in _READ_PAYLOADS
+
+
+def _retry_reads(client, attempts: int = 2):
+    """Wrap client.request so a read that times out is sent once more. (An ADDICT on
+    Wi-Fi now and then leaves a request unanswered for longer than the timeout.)"""
+    original = client.request
+
+    async def request(message, *args, **kwargs):
+        for n in range(attempts):
+            try:
+                return await original(message, *args, **kwargs)
+            except EDIDIOTimeoutError:
+                if n == attempts - 1 or not _is_read(message):
+                    raise
+    client.request = request
+    return client
+
 
 class SpektraController:
     def __init__(self, *, client_factory=_default_factory):
@@ -96,6 +134,7 @@ class SpektraController:
             raise last
         self.host = host
         self.port, self.use_tls = port, use_tls
+        _retry_reads(self._client)
         return self.connected
 
     async def disconnect(self):
@@ -1024,7 +1063,10 @@ class SpektraController:
         query, with decoded status flags. Read-only."""
         present = []
         for addr in range(max_address + 1):
-            res = await self.dali_query(line, addr, pb.DALIQueryType.DALI_QUERY_STATUS)
+            try:
+                res = await self.dali_query(line, addr, pb.DALIQueryType.DALI_QUERY_STATUS)
+            except EDIDIOTimeoutError:            # status query: safe to repeat
+                res = await self.dali_query(line, addr, pb.DALIQueryType.DALI_QUERY_STATUS)
             if res.get("responded"):
                 present.append({"address": addr, "status": dali.decode_status(res["data"]),
                                 "raw_status": res["data"]})
