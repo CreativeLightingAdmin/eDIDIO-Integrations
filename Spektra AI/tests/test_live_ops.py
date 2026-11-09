@@ -283,3 +283,61 @@ def test_read_retry_only_resends_reads():
         raise AssertionError("a DALI frame must not be resent")
     except EDIDIOTimeoutError:
         assert c.calls == 1
+
+
+def test_colour_names_for_live_colour():
+    import pytest
+    from edidio_spektra_ai import colour
+    rgbw = {"numChannels": 4, "channelColours": ["#FF0000", "#00FF00", "#0000FF", "#FFD580"]}
+    rgb = {"numChannels": 3, "channelColours": ["#FF0000", "#00FF00", "#0000FF"]}
+    assert colour.parse_levels("red", rgbw) == [255, 0, 0, 0]
+    assert colour.parse_levels("White", rgbw) == [0, 0, 0, 255]        # the W channel
+    assert colour.parse_levels("warm white", rgbw) == [0, 0, 0, 255]
+    assert colour.parse_levels("red+white", rgbw) == [255, 0, 0, 255]
+    assert colour.parse_levels("orange", rgbw) == [255, 128, 0, 0]     # mixed from RGB
+    assert colour.parse_levels("off", rgbw) == [0, 0, 0, 0]
+    assert colour.parse_levels("white", rgb) == [255, 213, 128]        # no W: mixed
+    assert colour.parse_levels("#00FF00", rgbw) == [0, 255, 0, 0]       # unchanged
+    assert colour.parse_levels("10,20,30,40", rgbw) == [10, 20, 30, 40]
+    with pytest.raises(ValueError, match="unknown colour"):
+        colour.parse_levels("chartreuse", rgbw)
+    with pytest.raises(ValueError, match="no 'red' channel"):
+        colour.parse_levels("red", {"numChannels": 1, "channelColours": ["#FFD580"]})
+
+
+def test_addressing_steps_wait_longer_than_the_client_timeout():
+    """A step is a whole binary search (~5-6 s on a busy bus), so addressing requests
+    must outlast the client's 5 s default: a session is never given up on mid-step."""
+    import asyncio
+    from edidio_spektra_ai.controller import SpektraController
+
+    class Client:
+        _timeout = 5.0
+        seen = []
+
+        async def request(self, message):
+            self.seen.append(self._timeout)
+            return "reply"
+
+    ctrl, client = SpektraController(), Client()
+    assert asyncio.run(ctrl._addressing_request(client, b"x")) == "reply"
+    assert client.seen == [SpektraController.ADDRESSING_STEP_TIMEOUT]
+    assert SpektraController.ADDRESSING_STEP_TIMEOUT >= 60
+    assert client._timeout == 5.0                    # restored for everything else
+
+
+def test_sd_overview_says_when_no_card_is_mounted(monkeypatch):
+    import asyncio
+    from edidio_spektra_ai import ops, tools_live as T
+
+    async def space(_c):
+        return {"status": "SD_NOT_MOUNTED", "free_bytes": 0, "total_bytes": 0,
+                "capacity_known": False}
+
+    async def policy(_c):
+        return {"entries": []}
+    monkeypatch.setattr(ops, "sd_space", space)
+    monkeypatch.setattr(ops, "sd_policy", policy)
+    monkeypatch.setattr(T._controller, "_require", lambda: object())
+    out = asyncio.run(T.sd_overview())
+    assert out.startswith("SD card: no card mounted") and "mounted, but" not in out

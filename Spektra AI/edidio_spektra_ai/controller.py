@@ -1103,11 +1103,26 @@ class SpektraController:
         return await self._dali_send_seq(
             dali.rgbwaf_messages(self._next_id, line, address, rgb, waf, arc_level))
 
+    # One addressing step is a whole binary search for the next fitting, answered only
+    # when it ends: on a busy bus that is ~5-6 s, past the client's 5 s default. A
+    # session must be stepped to its end, never given up on mid-step.
+    ADDRESSING_STEP_TIMEOUT = 90.0
+
+    async def _addressing_request(self, client, message):
+        old = getattr(client, "_timeout", None)
+        if old is not None:
+            client._timeout = max(old, self.ADDRESSING_STEP_TIMEOUT)
+        try:
+            return await client.request(message)
+        finally:
+            if old is not None:
+                client._timeout = old
+
     async def _addressing_pass(self, line, *, readdress, is24bit, max_devices=64):
         """One addressing pass: START then CONTINUE until NO_NEW_DEVICE. Returns the
         list of short addresses assigned this pass (or an error)."""
         client = self._require()
-        start = await client.request(dali.addressing_message(
+        start = await self._addressing_request(client, dali.addressing_message(
             self._next_id(), line, initialisation=True, readdress=readdress,
             is24bit=is24bit))
         res = dali.decode_addressing(start)
@@ -1115,7 +1130,7 @@ class SpektraController:
             return {"ok": False, "addressed": [], "error": res["error"]}
         addressed, errors = [], []
         for _ in range(max_devices):
-            step = await client.request(dali.addressing_message(
+            step = await self._addressing_request(client, dali.addressing_message(
                 self._next_id(), line, initialisation=False, is24bit=is24bit))
             r = dali.decode_addressing(step)
             if r["finished"]:

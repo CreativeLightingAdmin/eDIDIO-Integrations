@@ -820,7 +820,11 @@ async def sd_overview() -> str:
         return str(err)
     except Exception as err:  # noqa: BLE001
         return _err(err)
-    if space["capacity_known"]:
+    if space["status"] != "SD_OK":
+        what = {"SD_NOT_MOUNTED": "no card mounted (none inserted, or it failed to mount)"}
+        head = (f"SD card: {what.get(space['status'], space['status'])}. Nothing is being "
+                "logged to the card; the folder settings below apply once one is mounted.")
+    elif space["capacity_known"]:
         head = (f"SD card: {_human(space['free_bytes'])} free of "
                 f"{_human(space['total_bytes'])}.")
     else:
@@ -1610,7 +1614,8 @@ async def notify_when(event: str, index: int = -1, channel: str = "log", label: 
                                             "lists", "config", "network", "event"))
         chan = notify.make_channel(channel, log_channel=_log_channel, webhook_url=webhook_url)
     except Exception as err:  # noqa: BLE001
-        return _err(err)
+        from .server import _slots_hint
+        return _err(err) + _slots_hint(err)
     n = _controller.notifications.register(cond, chan, label=label or event,
                                           one_shot=one_shot)
     which = "" if index < 0 else (f" line {index}" if event == "dali_error" else f" #{index + 1}")
@@ -1624,9 +1629,10 @@ async def notify_when(event: str, index: int = -1, channel: str = "log", label: 
 async def set_zone_colour(zone: int, colour: str, fade_ms: int = 50,
                           stop_playback: bool = True, dali_group: int = -1) -> str:
     """Set a Spektra zone (0-based; Zone 1 = 0) to a colour RIGHT NOW - for trying
-    colours while designing sequences and themes. colour: '#RRGGBB' (mapped onto the
-    zone's red/green/blue channels) or one level per channel, '255,0,0,128' (0-255;
-    DALI channels cap at 254). stop_playback stops a sequence/theme running on the
+    colours while designing sequences and themes. colour: a name - 'red', 'warm
+    white', 'amber' (lights that channel), 'orange', 'pink' (mixed from red/green/blue),
+    'red+white', 'off' - or '#RRGGBB' (mapped onto the zone's red/green/blue channels)
+    or one level per channel, '255,0,0,128' (0-255; DALI channels cap at 254). stop_playback stops a sequence/theme running on the
     zone first (it would overwrite the colour). dali_group (DALI zones, 0-15): send
     channel n to DALI group dali_group+n instead of per address - one frame per
     channel however many lights (each channel's gear must be in its group).
@@ -1935,9 +1941,7 @@ async def preview_dali_channel_order(line: int, start_address: int = -1,
 # --- zone editor ---------------------------------------------------------------------
 
 _ZONE_PROTOCOLS = {"dali": 0, "dmx": 1, "dt8": 2, "dt8_xy": 3}
-_COLOUR_NAMES = {"red": "#FF0000", "green": "#00FF00", "blue": "#0000FF", "white": "#FFFFFF",
-                 "warm": "#FFD580", "cool": "#AAD6FF", "amber": "#FFBF00",
-                 "lime": "#BFFF00", "uv": "#8000FF"}
+from .colour import CHANNEL_COLOURS as _COLOUR_NAMES   # noqa: E402  (shared with set_zone_colour)
 
 
 @server.tool()
@@ -1946,8 +1950,8 @@ async def preview_zone(zone: int, protocol: str, line: int, lights: int, channel
     """Create or change a Spektra colour zone (0-based; Zone 1 = 0). protocol: dali,
     dmx, dt8 (DALI DT8 RGBWAF: one address per light, channels = its colours) or
     dt8_xy (DALI DT8 colour coordinates: the channels are mixed into one xy point). line: 1-4. lights: how many fixtures. channels: the colour of each channel
-    in order, e.g. 'red,green,blue,white' (also warm, cool, amber, lime, uv, or
-    #RRGGBB). start_address: first DALI address / DMX channel; light n starts at
+    in order, e.g. 'red,green,blue,white' (white = warm white, as SpektraPlus models
+    RGBW; also warm, cool, amber, lime, uv, or #RRGGBB). start_address: first DALI address / DMX channel; light n starts at
     start_address + n x channels. The controller always drives a zone per address
     (set_zone_colour can send a live colour to DALI groups instead). Zones apply after
     a save, which this includes. Returns a token."""
@@ -1991,8 +1995,13 @@ async def preview_zone(zone: int, protocol: str, line: int, lights: int, channel
                      if any(255 in (c.get("channelValues") or []) for c in x.get("colours") or [])]
         except Exception:  # noqa: BLE001 - the warning is best-effort
             hits = []
+        if protocol.lower() == "dali":
+            warn += ("\nNOTE: on DALI, a sequence's blend fade only works on fittings in "
+                     "DALI group 15 - the controller sends the fade time to group 15 when a "
+                     "sequence starts (opt-in). Add the zone's addresses with "
+                     "dali_add_to_group (group 15) if you want blends to fade.")
         if hits:
-            warn = (f"\nNOTE: {len(hits)} stored item(s) use level 255 ({', '.join(hits[:8])}"
+            warn += (f"\nNOTE: {len(hits)} stored item(s) use level 255 ({', '.join(hits[:8])}"
                     f"{', ...' if len(hits) > 8 else ''}). Played on a DALI zone, 255 is DALI "
                     "'no change', so those channels stay where they are - re-save them with "
                     "254 as the top value for DALI.")

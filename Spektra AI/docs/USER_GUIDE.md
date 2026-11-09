@@ -490,6 +490,7 @@ device log, DALI status cache or SD card.
 |---|---|
 | The tools don't appear in the client | The `python` in the client config is the one Spektra AI is installed in. Run `python -m edidio_spektra_ai` yourself to see any error. |
 | Can't connect | Ping the controller. Try TLS (port 443) and plain TCP (port 23). Another app holding every client connection gives NO_SLOT in the controller's network log. |
+| Watching, notifications or the recorder fail to start ("connection reset", WinError 64) | An eDIDIO allows **2 client connections** at a time. Spektra AI uses one, watching events (`start_watching`, `notify_when`) needs a second, and the background recorder needs its own. SpektraPlus and Claude Desktop each hold one while connected. `get_diagnostics connections` lists who holds them. Close SpektraPlus or another chat, or stop a recorder, then try again. |
 | TLS handshake fails | Spektra AI uses the TLS 1.2 settings eDIDIO needs. Make sure nothing (a proxy, antivirus) intercepts the connection. |
 | "Receive operation timed out" on an ADDICT | ADDICT on Wi-Fi sometimes leaves a request unanswered for several seconds. Reads are retried automatically; run the request again if one still fails. |
 | "Not supported by this controller" | The model or firmware doesn't have the feature. See COMPATIBILITY.md. |

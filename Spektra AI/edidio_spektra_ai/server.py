@@ -56,6 +56,19 @@ _pending: dict[str, dict] = {}  # token -> {"messages": [...], "preview": str}
 _log_channel = notify.LogChannel()  # shared safe channel for in-process notifications
 
 
+def _slots_hint(err) -> str:
+    """Watching needs a second connection; a controller with every client slot taken
+    resets it. Say so instead of leaving a bare socket error."""
+    text = str(err).lower()
+    if any(k in text for k in ("winerror 64", "reset", "connection failed", "refused",
+                               "network name is no longer")):
+        return ("\nThe controller may have no free client connection: watching events "
+                "needs a second one, and an eDIDIO allows 2 (shared with SpektraPlus, "
+                "Claude Desktop and any background recorder). get_diagnostics "
+                "connections shows who holds them.")
+    return ""
+
+
 def _new_token(messages, preview, on_success=None):
     token = secrets.token_hex(4)
     _pending[token] = {"messages": messages, "preview": preview,
@@ -608,7 +621,7 @@ async def start_watching(host: str = "", port: int = 23, use_tls: bool = False,
                 or list(DEFAULT_CATEGORIES))
         active = await _controller.start_events(cats)
     except Exception as err:  # noqa: BLE001
-        return f"Error starting watch: {err}"
+        return f"Error starting watch: {err}{_slots_hint(err)}"
     return (f"Watching {_controller.host} for: {', '.join(active)}. "
             "Poll with recent_events. (Events appear only when the device is active.)")
 

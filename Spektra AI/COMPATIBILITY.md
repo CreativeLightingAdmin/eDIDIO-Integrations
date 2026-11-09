@@ -89,6 +89,19 @@ hardware, and what is still to do.
 
 ## Behaviour to know (not faults)
 
+- One DALI addressing step (finding and programming the next fitting) can take
+  5-6 s on a busy bus, longer than the client's usual 5 s reply timeout. Spektra AI
+  waits up to 90 s for each step, so a commissioning run is never left half done.
+- An eDIDIO (1.6.3) accepts **2 client connections**. A Spektra AI session uses
+  one, and watching events or a background recorder each need another, as do
+  SpektraPlus and other Claude Desktop chats. A third connection is reset at
+  once. `get_diagnostics connections` lists who holds them.
+- On DALI zones, a sequence's blend fade reaches only fittings in **group 15**:
+  the controller stores the fade time on group 15 when a sequence starts
+  (opt-in). `preview_zone` says so for DALI zones.
+- SpektraPlus recognises a channel as white only when its colour is `#FFD580`
+  (warm white) or `#AAD6FF` (cool white); `#FFFFFF` shows as custom. Spektra AI's
+  `white` channel is warm white, as SpektraPlus models RGBW.
 - An ADDICT on Wi-Fi sometimes leaves a request unanswered for longer than the
   5 s timeout (ping varies 17-330 ms). Reads are resent once, and DALI queries
   repeat their whole DTR / ENABLE sequence, so this rarely shows. DALI memory reads
@@ -116,11 +129,6 @@ hardware, and what is still to do.
 - **SD capacity:** the controller answers SD_OK with 0 of 0 bytes when it has not
   measured the card. The protocol defines SD_CAPACITY_UNKNOWN for that.
   `sd_overview` reports the space as unknown.
-- **Event log stops reaching the SD card:** on the bench unit, `logs/LOGMETA.DAT`
-  says the controller is writing EVT_1576, but that file was never created. The
-  last event file is from weeks earlier, while the category still reports
-  "recording". The DALI and text logs are still being written. `sd_read_log` and
-  `sd_search` warn when the current file is missing.
 
 ## Still to do
 

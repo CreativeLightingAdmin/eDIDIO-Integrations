@@ -19,11 +19,59 @@ PROTOCOL_DALI, PROTOCOL_DMX = 0, 1
 _CONSECUTIVE_LINES = 1
 _PRIMARY = {"#FF0000": 0, "#00FF00": 1, "#0000FF": 2}   # channel colour -> RGB component
 
+# Channel colours as SpektraPlus stores them (it recognises only these hex values as
+# light types; anything else is "custom"); the W of RGBW is warm white.
+CHANNEL_COLOURS = {"red": "#FF0000", "green": "#00FF00", "blue": "#0000FF",
+                   "white": "#FFD580", "warm": "#FFD580", "warm white": "#FFD580",
+                   "ww": "#FFD580", "cool": "#AAD6FF", "cool white": "#AAD6FF",
+                   "cw": "#AAD6FF", "amber": "#FFBF00", "lime": "#BFFF00",
+                   "uv": "#8000FF"}
+# Colours with no channel of their own, mixed from red / green / blue.
+MIXED_COLOURS = {"orange": "#FF8000", "yellow": "#FFFF00", "purple": "#8000FF",
+                 "magenta": "#FF00FF", "pink": "#FF60A0", "cyan": "#00FFFF",
+                 "turquoise": "#00FFC0", "violet": "#8000FF"}
+_OFF = ("off", "black", "none")
+
+
+def _named_levels(text: str, zone: dict, n: int):
+    """'red', 'warm white', 'red+white', 'orange', 'off' -> levels, or None if the text
+    is not colour names. A name lights the zone's channel of that colour (full); a
+    name with no channel of its own is mixed from the red/green/blue channels."""
+    parts = [p.strip().lower() for p in text.replace(" and ", "+").split("+")]
+    if not all(p in CHANNEL_COLOURS or p in MIXED_COLOURS or p in _OFF for p in parts):
+        return None
+    chans = [str(c).upper() for c in (zone.get("channelColours") or [])][:n]
+    levels = [0] * n
+    for p in parts:
+        if p in _OFF:
+            continue
+        hexv = CHANNEL_COLOURS.get(p)
+        if hexv and hexv in chans:                 # the zone has this colour's channel
+            levels = [255 if c == hexv else v for c, v in zip(chans, levels)]
+            continue
+        hexv = hexv or MIXED_COLOURS[p]
+        if not any(c in _PRIMARY for c in chans):
+            raise ValueError(f"this zone has no '{p}' channel and no red/green/blue to mix "
+                             f"it from; give one level per channel ({n})")
+        rgb = [int(hexv[i:i + 2], 16) for i in (1, 3, 5)]
+        levels = [max(v, rgb[_PRIMARY[c]]) if c in _PRIMARY else v
+                  for c, v in zip(chans, levels)]
+    return levels
+
 
 def parse_levels(colour, zone: dict) -> list:
-    """'255,0,0' / [255,0,0] (one value per zone channel) or '#RRGGBB' (mapped onto
-    the zone's red/green/blue channels; other channels 0) -> channel levels."""
+    """'255,0,0' / [255,0,0] (one value per zone channel), '#RRGGBB' (mapped onto
+    the zone's red/green/blue channels; other channels 0), or colour names: 'red',
+    'warm white', 'red+white', 'orange', 'off' -> channel levels."""
     n = int(zone.get("numChannels") or 0)
+    if isinstance(colour, str) and colour.strip() and not colour.strip()[0] in "#0123456789":
+        named = _named_levels(colour, zone, n)
+        if named is None:
+            raise ValueError(
+                f"unknown colour '{colour}': use a name ({', '.join(sorted(CHANNEL_COLOURS))}, "
+                f"{', '.join(sorted(MIXED_COLOURS))}, off; join with '+'), '#RRGGBB', or one "
+                f"level per channel ({n})")
+        return named
     if isinstance(colour, str) and colour.strip().startswith("#"):
         h = colour.strip().lstrip("#")
         if len(h) != 6:
