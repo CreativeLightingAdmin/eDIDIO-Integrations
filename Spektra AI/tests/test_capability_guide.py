@@ -47,3 +47,15 @@ def test_guide_lists_every_tool():
     section = capability_guide.build_guide().split("## Tools by task")[1].split("## Commands")[0]
     listed = set(re.findall(r"[a-z][a-z0-9_]{3,}", section))
     assert names - listed == set(), f"tools missing from the guide: {sorted(names - listed)}"
+
+
+def test_readme_lists_every_tool():
+    import asyncio
+    import re
+    from pathlib import Path
+
+    from edidio_spektra_ai import server
+    names = {t.name for t in asyncio.run(server.server.list_tools())}
+    readme = (Path(__file__).parent.parent / "README.md").read_text(encoding="utf-8")
+    listed = set(re.findall(r"`([a-z][a-z0-9_]+)`", readme))
+    assert names - listed == set(), f"tools missing from README.md: {sorted(names - listed)}"

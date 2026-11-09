@@ -11,8 +11,13 @@ and troubleshoot — in plain language:
 > goes idle."*
 
 > **Target:** the SpektraPlus authoring/configuration surface.
-> **Tech:** Python MCP SDK + `edidio_control_py` engine (≥ 0.5.0, which provides
-> the v2 event stream).
+> **Tech:** Python MCP SDK + `edidio_control_py` engine (≥ 0.5.1: protocol 1.3.2
+> and the full event stream).
+>
+> **Compatibility, what is verified on hardware, and what is still to do:** see
+> [COMPATIBILITY.md](COMPATIBILITY.md). **Every tool, grouped by task:** the
+> capability guide ([CAPABILITY_GUIDE.md](CAPABILITY_GUIDE.md)), which the assistant
+> also reads as the `edidio://capability-guide` resource.
 >
 > Only need to *operate* lights (levels, scenes, effects) with no configuration
 > writes? The control-only **[MCP Server (Lite)](../MCP%20Server/)** is a smaller,
@@ -24,11 +29,13 @@ and troubleshoot — in plain language:
 - `discover_controllers`, `connect_controller`, `connection_status`.
 - `get_zone_details`, `list_zones`, `list_sequences`, `list_themes`, `list_alarms`,
   `get_calendar`, `whats_playing`, `whats_scheduled_next`, `get_time`,
-  `device_capabilities`, `query_dmx_cache`.
+  `device_capabilities`, `query_dmx_cache`, `get_diagnostics`.
+- Play now: `play_sequence`, `play_theme`, `stop_zone`.
 
 **Author with a safety net** — every create is **preview → confirm**
 - `preview_sequence` / `preview_theme` / `preview_schedule` / `preview_calendar`
   return a human preview **and a token**; nothing is written until `confirm(token)`.
+  `clear_schedule` empties a schedule slot.
   A schedule can run any command (start a list, change profile, recall a DALI
   scene, ...) at a time or sunrise/sunset, with an optional end command.
 
@@ -43,7 +50,7 @@ and troubleshoot — in plain language:
 - Generate a project from a spec: see `tools/build_alma.py` (builds a multi-controller
   project from a functionality statement, on the bundled controller template).
 
-**DALI** (Phase 4) — commission and configure control gear
+**DALI** — commission and configure control gear
 - `dali_scan` (find gear + status), `dali_set_level`, `dali_identify` (blink),
   `dali_set_colour` (DT8 colour temperature / RGBWAF).
 - `set_dali_line` (set a line to DALI + reboot), `commission_dali` (robust multi-pass
@@ -223,12 +230,19 @@ with the fleet's RSA-1024 certificate, so Spektra AI uses a dedicated context fo
 ```
 Spektra AI/
 ├── edidio_spektra_ai/
-│   ├── server.py            # MCP tools + capability-guide resource + preview/confirm
-│   ├── tools_live.py        # MCP tools: health, log, live state/actions, settings, lists/IO/logic
-│   ├── ops.py               # live operations in the current protocol (diagnostics, log, Wi-Fi, ...)
+│   ├── server.py            # MCP server, capability-guide resource, preview/confirm, core tools
+│   ├── tools_live.py        # the other tools: health, log, live state, authoring, settings,
+│   │                        #   sensors, DALI-2, RDM, SD, zones, calendar, statement, notify
+│   ├── ops.py               # live operations in the current protocol (diagnostics, log, Wi-Fi, SD)
 │   ├── v2.py                # requests/acks in the current proto (RejectReason, new messages)
 │   ├── commands.py          # friendly command JSON <-> trigger dicts (mirrors SpektraPlus)
 │   ├── device_log.py        # decode the controller's system log (mirrors SpektraPlus)
+│   ├── dali24.py            # DALI-2 control devices (24-bit frames, instances)
+│   ├── dali_units.py        # physical devices from memory bank 0; channel-order re-addressing
+│   ├── rdm.py               # RDM discovery and parameters
+│   ├── colour.py            # live zone colour (DMX and DALI)
+│   ├── statement.py         # functionality statement from a project
+│   ├── calendar_check.py    # Spektra calendar vs expected dates
 │   ├── controller.py        # dynamic connect; reads/writes/commissioning/events
 │   ├── authoring.py         # spec -> eDIDIO messages + preview (pure, tested)
 │   ├── spektra_file.py      # load/save/summarize .spektra (legacy + v3)
@@ -244,14 +258,15 @@ Spektra AI/
 │   ├── capability_guide.py  # guide generated from protobuf descriptors
 │   ├── discovery.py         # LAN discovery
 │   └── templates/           # bundled controller template (device skeleton)
-├── tools/build_alma.py      # example: generate a project from a functionality statement
-├── CAPABILITY_GUIDE.md      # generated snapshot of the guide
+├── tools/build_example_project.py  # example: generate a project from a functionality statement
+├── CAPABILITY_GUIDE.md      # generated snapshot of the guide (all tools by task)
+├── COMPATIBILITY.md         # versions, firmware gates, verified features, to-do
 └── tests/                   # 205 tests (stub clients + real-file fixtures)
 ```
 
 ### Fidelity notes (mirroring SpektraPlus)
 
-- `.spektra` per-item field shapes follow `SpektraPlus/shared/src/types.ts`
+- `.spektra` per-item field shapes follow SpektraPlus's own project types
   (the authoritative source) — not the on-disk template/as-built, which can carry
   legacy field names (e.g. inputs use `type`, not `isMomentaryOperation`).
 - A valid file needs the full device skeleton (`supportedFeatures`, `network`,

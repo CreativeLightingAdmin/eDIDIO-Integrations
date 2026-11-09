@@ -1,7 +1,6 @@
 """Map eDIDIO protobuf messages -> SpektraPlus ``.spektra`` JSON dicts.
 
-This mirrors the *reverse* mappers in ``SpektraPlus/src/helpers/messageMappings.ts``
-(``mapPb*ToEdidio*``) so a live config pulled off a controller lands in exactly the
+This mirrors SpektraPlus's protobuf-to-project mapping so a live config pulled off a controller lands in exactly the
 field names/units the app uses — the point being to reuse SpektraPlus's mapping, not
 reinvent it. Kept as pure functions over protobuf messages for easy testing.
 """
@@ -16,11 +15,11 @@ from edidio_control_py import EdidioClient
 
 from .sync import device_sequence_title, device_theme_title
 
-# --- small enums mirrored from SpektraPlus/shared/src/constants.ts ---
+# --- small enums mirrored from SpektraPlus's constants ---
 _TIME_MS, _TIME_S, _TIME_MIN, _TIME_HR = 0, 1, 2, 3
 _DIR_FORWARD, _DIR_REVERSE, _DIR_CYCLE = 0, 1, 2
 
-# LightType (constants.ts) inferred from a channel's hex colour.
+# LightType inferred from a channel's hex colour.
 _LIGHT_BY_HEX = {
     "#FF0000": 0, "#00FF00": 1, "#0000FF": 2, "#FFD580": 3, "#AAD6FF": 4,
     "#FFBF00": 5, "#808080": 6, "#000000": 8,
@@ -29,7 +28,7 @@ _LIGHT_CUSTOM = 7
 
 
 def decode_date(encoded: int) -> str:
-    """Decode a packed device date int -> 'YYYY-MM-DD' (messageMappings.decodeDate)."""
+    """Decode a packed device date int -> 'YYYY-MM-DD' (as SpektraPlus decodes it)."""
     year = 2000 + ((encoded >> 24) & 0xFF)
     month = ((encoded >> 16) & 0xFF)
     day = (encoded >> 8) & 0xFF
@@ -37,7 +36,7 @@ def decode_date(encoded: int) -> str:
 
 
 def decode_time(encoded: int) -> str:
-    """Decode a packed device time int -> 'HH:MM:SS' (messageMappings.decodeTime)."""
+    """Decode a packed device time int -> 'HH:MM:SS' (as SpektraPlus decodes it)."""
     hours = (encoded >> 16) & 0xFF
     minutes = (encoded >> 8) & 0xFF
     seconds = encoded & 0xFF
@@ -180,7 +179,7 @@ def theme_to_dict(pb) -> dict:
 
 
 # --- forward mappers (.spektra dict -> protobuf message frame bytes) ----------
-# Mirror messageMappings.ts mapEdidio*ToPb* so a file pushes back faithfully.
+# Mirror SpektraPlus's project-to-protobuf mapping so a file pushes back faithfully.
 
 _UNIT_TO_MS = {_TIME_MS: 1, _TIME_S: 1000, _TIME_MIN: 60000, _TIME_HR: 3600000}
 
@@ -288,7 +287,7 @@ def _trigger_params(cmd: dict) -> dict:
 
 
 def schedule_to_message(sched: dict, message_id: int, is_dali: bool = False) -> bytes:
-    """EdidioSchedule dict -> AlarmMessage frame (mirrors mapEdidioScheduleToPbAlarm)."""
+    """EdidioSchedule dict -> AlarmMessage frame (as SpektraPlus maps it)."""
     start = sched.get("startEvent") or {}
     end = sched.get("endEvent") or {}
     end_active = sched.get("endEventIsActive", False)
@@ -324,7 +323,7 @@ def _frame(message_id: int, **field) -> bytes:
 
 def zone_to_message(zone: dict, message_id: int, is_dali: bool = False) -> bytes:
     """EdidioZoneData dict -> SpektraSettingMessage frame (mirrors
-    mapEdidioZoneDataToPbSpektraSettings). No engine builder exists, so framed here."""
+    SpektraPlus's zone mapping). No engine builder exists, so framed here."""
     settings = pb.SpektraSettingMessage(
         zone=int(zone["index"]),
         start_address=int(zone.get("startAddress", 0)),
@@ -347,7 +346,7 @@ _LATCHING_OUTPUT_TRIGGER_TIME = 255
 
 
 def _canon_output_time(type_: int, trigger_time: int) -> int:
-    """Latching outputs ignore the pulse timer -> canonical value (gpioLayout.ts)."""
+    """Latching outputs ignore the pulse timer -> canonical value (as SpektraPlus stores it)."""
     return _LATCHING_OUTPUT_TRIGGER_TIME if type_ == _LATCHING_OUTPUT else trigger_time
 
 
@@ -543,7 +542,7 @@ COOP_GROUPING_FIRMWARE = "1.3.0"
 
 
 def sensor_to_dict(pb) -> dict:
-    """SensorMessage -> EdidioSensor dict (mirrors mapPbSensorToEdidioSensor; the
+    """SensorMessage -> EdidioSensor dict (as SpektraPlus maps it; the
     app-only `identifier` uuid is omitted so pulls are deterministic)."""
     grouped = [i for i in range(32) if (pb.motion_sensors or 0) & (1 << i)]
     return {
@@ -636,7 +635,7 @@ def daliinputs_to_message(profile: int, inputs: list, message_id: int) -> bytes:
 
 def diag_to_supported_features(diag) -> dict:
     """DiagnosticSystemInfoResponse -> EdidioSupportedFeatures dict (mirrors
-    mapPbDiagInfoToSupportedFeatures). Drives the SpektraPlus UI."""
+    SpektraPlus's mapping). Drives the SpektraPlus UI."""
     g = lambda name: getattr(diag, name, 0) or 0  # noqa: E731
     return {
         "inputs": g("input_count"), "outputs": g("output_count"),
@@ -656,7 +655,7 @@ def diag_to_supported_features(diag) -> dict:
 
 def network_to_dict(pb, *, current_ip="", mac="", device_name="", tls=False) -> dict:
     """AdminNetworkPropertiesMessage -> EdidioNetworkProperties dict
-    (mirrors mapPbNetworkToEdidioNetwork)."""
+    (as SpektraPlus maps it)."""
     g = lambda name, d="": getattr(pb, name, d) or d  # noqa: E731
     return {
         "ip": current_ip, "staticIp": g("IP"), "mac": g("MAC") or mac,
@@ -672,11 +671,11 @@ def network_to_dict(pb, *, current_ip="", mac="", device_name="", tls=False) -> 
 
 
 # --- persistence / profile / clear helpers ----------------------------------
-# Zones and sensor-clears are RAM-only until an explicit save (see SyncService.ts /
-# ZonesAdapter / SensorsAdapter). These build the messages that persist them.
+# Zones and sensor-clears are RAM-only until an explicit save (as SpektraPlus
+# handles them). These build the messages that persist them.
 
 def zone_save_message(message_id: int) -> bytes:
-    """SpektraControl SETTINGS SAVE — persists zone writes to flash (ZonesAdapter)."""
+    """SpektraControl SETTINGS SAVE — persists zone writes to flash."""
     return EdidioClient.create_spektra_control_message(
         message_id, pb.SpektraTargetType.SETTINGS, 0, 0, pb.SpektraActionType.SAVE)
 

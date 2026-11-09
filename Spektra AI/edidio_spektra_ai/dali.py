@@ -4,7 +4,7 @@ Message builders + response decoders for talking to DALI control gear directly:
 scan a line for present devices, query status/type, set arc levels, identify (blink) a
 fixture, set DT8 colour (colour temperature, RGBWAF, xy), and run the addressing
 (commissioning) sequence. Builders mirror SpektraPlus's DALI helpers
-(``src/helpers/networkWriteMessages.ts``); decoders read the ``DALIQueryResponse`` the
+(as SpektraPlus sends them); decoders read the ``DALIQueryResponse`` the
 firmware returns. DALI short addresses are 0-63.
 
 Commissioning WRITES device addresses, so its tools go through preview -> confirm.
@@ -160,7 +160,7 @@ def decode_addressing(reply) -> dict:
 
 
 # --- memory banks (device identity for grouping channels into fixtures) -----
-# 16-bit DALI special-command opcodes (IEC 62386-102; see SpektraPlus daliTypes.ts).
+# 16-bit DALI special-command opcodes (IEC 62386-102).
 _DTR0_OPCODE = 0xA3
 _DTR1_OPCODE = 0xC3
 

@@ -128,9 +128,9 @@ def _proj(*macs, hw="6P-1007-Y"):
 
 
 def test_check_target_picks_the_connected_controller():
-    ctrl = _IdentCtrl(["40:D8:55:1B:A5:8F"])
-    mac, warn = asyncio.run(ctrl.check_target(_proj("40:D8:55:1B:A5:90", "40:d8:55:1b:a5:8f")))
-    assert mac == "40:d8:55:1b:a5:8f" and warn == []
+    ctrl = _IdentCtrl(["40:D8:55:00:00:0F"])
+    mac, warn = asyncio.run(ctrl.check_target(_proj("40:D8:55:00:00:10", "40:d8:55:00:00:0f")))
+    assert mac == "40:d8:55:00:00:0f" and warn == []
 
 
 def test_check_target_refuses_wrong_device_and_model_change():

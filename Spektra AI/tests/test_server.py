@@ -225,7 +225,7 @@ def test_clear_schedule():
     sent = [f for f in srv._controller._client.sent if isinstance(f, bytes)]
     found = False
     for f in sent:
-        m = pb.EdidioMessage(); m.ParseFromString(f[3:])
+        m = pb.EdidioMessage.FromString(f[3:])
         if m.WhichOneof("payload") == "alarm" and m.alarm.index == 2 and not m.alarm.enabled:
             found = True
     assert found
@@ -262,7 +262,7 @@ def test_set_time_default_now():
     sent = [f for f in srv._controller._client.sent if isinstance(f, bytes)]
     kinds = []
     for f in sent:
-        m = pb.EdidioMessage(); m.ParseFromString(f[3:])
+        m = pb.EdidioMessage.FromString(f[3:])
         if m.WhichOneof("payload") == "admin_message":
             kinds.append((m.admin_message.command, m.admin_message.target))
     assert (pb.AdminCommandType.SET, pb.AdminPropertyType.DEVICE_TIME) in kinds
@@ -291,7 +291,7 @@ def test_sequence_fade_preview_and_encoding():
     assert "600ms fade" in out
     token = out.split('token="')[1].split('"')[0]
     frame = srv._pending[token]["messages"][0]
-    m = pb.EdidioMessage(); m.ParseFromString(frame[3:])
+    m = pb.EdidioMessage.FromString(frame[3:])
     assert m.spektra_sequence.fade_time_by_10ms == 60  # 600ms / 10
 
 
@@ -305,7 +305,8 @@ def test_play_sequence_on_zone():
     sent = [f for f in srv._controller._client.sent if isinstance(f, bytes)]
     kinds = []
     for f in sent:
-        m = _pb.EdidioMessage(); m.ParseFromString(f[3:]); kinds.append(m.WhichOneof("payload"))
+        m = _pb.EdidioMessage.FromString(f[3:])
+        kinds.append(m.WhichOneof("payload"))
     assert "spektra_control" in kinds
 
 

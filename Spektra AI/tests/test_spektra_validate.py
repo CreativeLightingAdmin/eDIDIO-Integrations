@@ -63,7 +63,7 @@ def test_firmware_163_limits():
 
 def test_identity_and_old_logic_targets():
     raw = {"appVersion": "1.2.9", "edidios": {"40:D8:55:00:00:01": {
-        "network": {"mac": "40:D8:55:1B:A2:99"},
+        "network": {"mac": "40:D8:55:00:00:99"},
         "logicActions": [{"index": 0, "isEnabled": True, "comparisonType": 2,
                           "comparisonObject": {"commandtype": 2, "target": 5}}]}}}
     msgs = [i.message for i in validate(SpektraProject(raw=raw))]

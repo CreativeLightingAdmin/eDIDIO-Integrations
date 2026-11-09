@@ -34,14 +34,16 @@ _LOGGER = logging.getLogger(__name__)
 server = MCPServer(
     name="Spektra AI",
     instructions=(
-        "Author and control Control Freak eDIDIO SpektraPlus lighting. You can "
-        "find controllers on the network and connect, inspect zones/sequences/"
-        "themes/schedules, and CREATE sequences, themes and schedules from natural "
-        "language. Authoring writes persistent config, so create_* tools return a "
-        "preview and a token; call confirm(token) to actually write. Read the "
-        "'edidio://capability-guide' resource for the exact animation types, enums, "
-        "colour format and limits, and read a zone with get_zone_details before "
-        "authoring so colours match its channels-per-light."
+        "Configure, operate and troubleshoot Control Freak eDIDIO lighting controllers "
+        "(and ADDICT interfaces): find and connect, read and write every part of the "
+        "configuration (Spektra sequences/themes/zones/calendar, schedules, lists, "
+        "inputs, outputs, logic, sensors, DALI-2 devices, DMX-to-DALI translations, "
+        "burn-ins, settings), commission DALI, RDM, live state and control, the "
+        "device log and health, .spektra project files with SpektraPlus-compatible "
+        "sync, and out-of-band notifications. Anything the controller stores goes "
+        "preview_* -> confirm(token); reads and live actions run at once. Indices are "
+        "0-based (List 1 = 0). Read the 'edidio://capability-guide' resource first: "
+        "tools by task, the command vocabulary, enums and limits."
     ),
 )
 

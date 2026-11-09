@@ -11,7 +11,7 @@ normalises the two sync-state formats we see in the wild:
 * **v2/v3** files (current SpektraPlus) — ``fileFormatVersion`` + ``syncData``
   (``syncStates`` keyed ``"<MAC>:<dataType>"``, hash-based ``EmbeddedSyncState``).
 
-The authoritative schema is ``SpektraPlus/shared/src/types.ts`` (``ProjectState``,
+The authoritative schema is SpektraPlus's project types (``ProjectState``,
 ``Edidio*``, ``ProjectSyncData``); this mirrors it rather than re-deriving it.
 """
 
@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterator
 
-# Current SpektraPlus file format (shared/src/types.ts: PROJECT_FILE_FORMAT_VERSION).
+# Current SpektraPlus file format version.
 CURRENT_FILE_FORMAT_VERSION = 3
 
 # Device-level config sections (arrays directly under each eDIDIO).
@@ -33,7 +33,7 @@ DEVICE_SECTIONS = (
 # Per-profile config sections (arrays inside each profiles[] entry).
 PROFILE_SECTIONS = ("inputs", "outputs", "sensors", "daliInputs", "irs", "userLevels")
 
-# EmbeddedSyncState.status values (shared/src/types.ts).
+# EmbeddedSyncState.status values (SpektraPlus project format).
 SYNC_SYNCED = "SYNCED"
 SYNC_UNSYNCED = "UNSYNCED"
 SYNC_DESYNCED = "DESYNCED"

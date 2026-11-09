@@ -1,6 +1,6 @@
 """Hash-based sync detection + v3 ``syncData`` ledger.
 
-Ports SpektraPlus's ``src/utils/hash.ts`` canonicalisation pipeline so a section's
+Ports SpektraPlus's sync-hash canonicalisation pipeline so a section's
 hash here matches the app's: strip transient fields -> trim trailing zeros on
 channel arrays -> per-type canonicalisers -> sort index-keyed arrays -> SHA-256 of
 sorted-key, JS-number-compatible JSON. Used to detect per-section SYNCED / UNSYNCED /
@@ -16,7 +16,7 @@ import hashlib
 import json
 from datetime import datetime, timezone
 
-# --- transient fields (mirror sync.types.ts TRANSIENT_FIELDS) ---
+# --- transient fields (as SpektraPlus strips them) ---
 _GLOBAL = {"error", "uuid", "identifier"}
 _NESTED = {"duration", "timeUnit", "light_state", "running_flag", "enable_flag"}
 _TYPE_TRANSIENT = {
@@ -274,7 +274,7 @@ def _canon_order(data, data_type):
 
 
 def canonicalize(data, data_type):
-    """Full device-context-free normalisation (mirrors canonicalizeForSync)."""
+    """Full device-context-free normalisation (as SpektraPlus canonicalises)."""
     cleaned = _strip(data, data_type)
     cleaned = _trim_channels(cleaned)
     for fn in _CANONICALIZERS.get(data_type, ()):

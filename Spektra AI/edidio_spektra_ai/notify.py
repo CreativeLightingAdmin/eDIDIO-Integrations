@@ -19,7 +19,7 @@ import json
 import logging
 import smtplib
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from email.message import EmailMessage
 

@@ -991,7 +991,7 @@ class SpektraController:
     async def wait_for_reboot(self, *, grace: float = 8.0, timeout: float = 120.0,
                               poll: float = 3.0) -> bool:
         """Wait out the pre-power-cycle idle, then reconnect once the device is back.
-        Returns True if reconnected within the budget (mirrors deviceReboot.ts)."""
+        Returns True if reconnected within the budget (as SpektraPlus does it)."""
         host = self.host
         port = getattr(self, "port", None) or (self._client.port if self._client else 23)
         tls = getattr(self, "use_tls", False)   # reconnect the way we were connected

@@ -6,9 +6,9 @@
   "sourceProjectUID": "1761095413244",
   "data": {
     "network": {
-      "ip": "192.168.20.145",
+      "ip": "",
       "staticIp": "192.168.0.70",
-      "mac": "40:D8:55:1B:A2:99",
+      "mac": "",
       "isConnected": false,
       "deviceName": "eDIDIO Control",
       "connectionProtocol": "TCP",
