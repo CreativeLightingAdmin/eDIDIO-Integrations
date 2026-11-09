@@ -28,7 +28,7 @@ hardware, and what is still to do.
 
 | Feature | Needs | Without it |
 |---|---|---|
-| Live event stream (v2) and `notify_when` | 1.4.0+ | Older than 1.2.0: legacy event registration (fewer event types). 1.2.0-1.3.x: no event stream |
+| Live event stream (v2), `notify_when` and the background recorder | 1.4.0+ | Older than 1.2.0: legacy event registration (fewer event types). 1.2.0-1.3.x: no event stream |
 | Fast sequence/theme reads (slot manifest) | 1.6.0+ | Every slot is read (slower, same result) |
 | Refused values come back with a reason | 1.6.3 | Older firmware may store a truncated value and report success |
 | Device log categories (`preview_logging`) | 1.6.3 | Log reads still work |
@@ -50,6 +50,8 @@ hardware, and what is still to do.
   translations, burn-ins, zones, names, device/network/clock settings, line types.
 - Health check, diagnostics, device log, SD card listing/reading/search, and
   decoding of the binary DALI bus logs (DAL_*.BIN) and event logs (EVT_*.BIN).
+- Background event recorder: kept recording after the launching process exited,
+  captured DALI frames, sensor events and connections, and stopped on request.
 - Live state, `run_command`, profile changes, live colour on DMX and DALI zones,
   per address and by DALI group, and DALI DT8 RGBWAF and xy zones (levels and DT8
   colour values read back from the fittings, frames seen on the bus).

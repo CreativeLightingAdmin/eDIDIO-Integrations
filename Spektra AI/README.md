@@ -71,6 +71,15 @@ and troubleshoot — in plain language:
   occupied / warning / idle, list started, schedule fired, config changed (with the
   client's IP), restart, client connected, network link down, Spektra started,
   DALI send errors.
+- `recorder_start` / `recorder_status` / `recorder_stop` / `recorded_events` — a
+  **background event recorder**: a separate process that keeps writing the
+  controller's events (inputs, sensors, DALI frames, schedules, lists, config
+  changes, connections) to daily JSON-lines files after the chat or the MCP server
+  closes, and reconnects by itself. `recorded_events` searches what it captured
+  (by kind, text, time, errors). The same recorder runs as a service with
+  `edidio-spektra-recorder --host <ip> [--tls] [--name <name>]` (or
+  `python -m edidio_spektra_ai.recorder`). Files go to `~/.spektra_ai/recordings`
+  (or `SPEKTRA_AI_RECORDINGS`); day files older than `--keep-days` (30) are deleted.
 - `notify_on` / `list_notifications` / `clear_notifications` — fire a notification
   (log / webhook / email) **out-of-band** when an event matches a condition
   (e.g. *"when the foyer sensor goes MOTION_IDLE"*), independent of the chat.

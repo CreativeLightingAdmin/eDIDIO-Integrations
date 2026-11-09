@@ -2534,3 +2534,182 @@ async def preview_dali_scene(line: int, target: str, scene: int, level: str) -> 
     from .server import _pending
     _pending[token]["runner"] = run
     return f"PREVIEW:\n{body}\nCall confirm(token=\"{token}\") to write."
+
+
+# --- background event recorder (keeps recording when no MCP session is running) -----
+
+def _recorder_folder(name: str):
+    from . import recorder
+    return recorder.recordings_dir() / recorder.safe_name(name)
+
+
+@server.tool()
+async def recorder_start(host: str = "", port: int = 23, use_tls: bool = False,
+                         name: str = "", categories: str = "", keep_days: int = 30) -> str:
+    """Start a BACKGROUND event recorder: a separate process that subscribes to the
+    controller's live events and writes them to disk, and keeps going after this chat
+    or the MCP server closes, reconnecting by itself. host: default the connected
+    controller. name: the recording's name (default: the host). categories: default
+    everything (inputs, sensors, triggers, dali, schedule, lists, config, network).
+    keep_days: day files older than this are deleted (0 = keep all). Needs firmware
+    1.4.0+. Uses one of the controller's client connections. Read-only on the
+    controller. Check with recorder_status, read with recorded_events."""
+    import asyncio
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+    from . import recorder
+    try:
+        if not host:
+            if not _controller.host:
+                return "Give host, or connect to a controller first."
+            host = _controller.host
+            port = getattr(_controller, "port", port)
+            use_tls = getattr(_controller, "use_tls", use_tls)
+        folder = _recorder_folder(name or host)
+        st = recorder.read_status(folder)
+        if st.get("alive"):
+            return (f"Recorder '{folder.name}' is already running (pid {st.get('pid')}, "
+                    f"{st.get('state')}, {st.get('events')} events).")
+        folder.mkdir(parents=True, exist_ok=True)
+        args = [sys.executable, "-m", "edidio_spektra_ai.recorder", "--host", host,
+                "--port", str(port), "--name", folder.name, "--dir", str(folder.parent),
+                "--keep-days", str(keep_days)]
+        if use_tls:
+            args.append("--tls")
+        if categories.strip():
+            args += ["--categories", categories]
+        env = dict(os.environ)
+        pkg_root = str(Path(__file__).resolve().parent.parent)
+        env["PYTHONPATH"] = pkg_root + os.pathsep + env.get("PYTHONPATH", "")
+        kw = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+              "stderr": open(folder / "recorder.err", "ab"), "env": env,
+              "cwd": str(folder)}
+        if os.name == "nt":
+            kw["creationflags"] = (subprocess.DETACHED_PROCESS
+                                   | subprocess.CREATE_NEW_PROCESS_GROUP
+                                   | subprocess.CREATE_NO_WINDOW)
+        else:
+            kw["start_new_session"] = True
+        try:
+            (folder / "status.json").unlink()
+        except OSError:
+            pass
+        proc = subprocess.Popen(args, **kw)
+        for _ in range(40):                       # up to ~20 s for the first connect
+            await asyncio.sleep(0.5)
+            st = recorder.read_status(folder)
+            if (st.get("state") in ("recording", "failed", "retrying")
+                    or proc.poll() is not None):
+                break
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if proc.poll() is not None and st.get("state") != "failed":
+        return (f"The recorder exited at once (code {proc.returncode}); see "
+                f"{folder / 'recorder.err'}.")
+    state = st.get("state", "starting")
+    msg = {"recording": "recording",
+           "retrying": f"not connected yet ({st.get('error')}); it keeps retrying",
+           "failed": f"FAILED: {st.get('error')}"}.get(state, state)
+    return (f"Recorder '{folder.name}' started (pid {proc.pid}) for {host}: {msg}.\n"
+            f"Files: {folder}. Stop it with recorder_stop(name=\"{folder.name}\").")
+
+
+@server.tool()
+async def recorder_status() -> str:
+    """Every background event recorder on this computer: running or not, controller,
+    state (recording / reconnecting / retrying), events recorded since it started,
+    the last event time, and how much is on disk."""
+    from . import recorder
+    recs = recorder.list_recorders()
+    if not recs:
+        return f"No recordings in {recorder.recordings_dir()}."
+    rows = [f"Recordings in {recorder.recordings_dir()}:"]
+    for r in recs:
+        if r.get("alive"):
+            run = (f"RUNNING (pid {r.get('pid')}), {r.get('state')}"
+                   + (f" - {r['error']}" if r.get("error") else "")
+                   + f", {r.get('events')} events since {r.get('started')}"
+                   + (f", last {r['last_event'][:19].replace('T', ' ')}"
+                      if r.get("last_event") else ""))
+        else:
+            run = "not running" + (f" ({r.get('state')}: {r['error']})"
+                                   if r.get("state") == "failed" else "")
+        days = (f"{r['files']} day file(s) {r['first_day']} to {r['last_day']}, "
+                f"{_human(r['bytes'])}" if r["files"] else "no events on disk")
+        rows.append(f"  {r['name']}: {r.get('host', '?')} - {run}; {days}")
+    return "\n".join(rows)
+
+
+@server.tool()
+async def recorder_stop(name: str) -> str:
+    """Stop a background event recorder (it closes its connection and exits). The
+    recorded events stay on disk."""
+    import asyncio
+    import os
+    import signal
+    from . import recorder
+    pid = None
+    try:
+        folder = _recorder_folder(name)
+        st = recorder.read_status(folder)
+        if not st:
+            return f"No recorder named '{name}' (see recorder_status)."
+        if not st.get("alive"):
+            return f"Recorder '{folder.name}' is not running."
+        (folder / "stop").write_text("stop", encoding="utf-8")
+        for _ in range(30):
+            await asyncio.sleep(0.5)
+            st = recorder.read_status(folder)
+            if not st.get("alive"):
+                return (f"Recorder '{folder.name}' stopped ({st.get('events')} events this "
+                        "run). The files are kept.")
+        pid = st.get("pid")
+        if pid:
+            try:
+                os.kill(int(pid), signal.SIGTERM)
+            except OSError:
+                pass
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return f"Recorder '{folder.name}' did not stop in time; its process (pid {pid}) was ended."
+
+
+@server.tool()
+async def recorded_events(name: str = "", last: int = 50, text: str = "", kind: str = "",
+                          since: str = "", until: str = "", errors_only: bool = False) -> str:
+    """Read what a background recorder captured. name: the recording (default: the
+    only one). Shows the last `last` matching events. Filters: kind (comma list of
+    input, sensor, dali, list, schedule, config, boot, net, spektra, command, text,
+    recorder), text (case-insensitive, matches the shown line), since / until
+    ('2026-11-09 14:00', this computer's local time), errors_only (failed DALI frames,
+    watchdog resets, lost connections). '[recorder]' lines mark when recording
+    started, stopped or lost the controller - gaps in between are not covered."""
+    import datetime as dt
+    from . import recorder
+    try:
+        if not name:
+            recs = recorder.list_recorders()
+            if not recs:
+                return "No recordings yet (start one with recorder_start)."
+            if len(recs) > 1:
+                return "Several recordings - give name: " + ", ".join(r["name"] for r in recs)
+            name = recs[0]["name"]
+        folder = _recorder_folder(name)
+        if not folder.is_dir():
+            return f"No recording named '{name}'."
+
+        def when(s):
+            return (dt.datetime.fromisoformat(s.strip().replace("T", " "))
+                    if s.strip() else None)
+        events, total = recorder.read_events(folder, since=when(since), until=when(until),
+                                             kind=kind, text=text, errors_only=errors_only,
+                                             last=max(1, last))
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if not events:
+        return f"No matching events in recording '{folder.name}'."
+    head = (f"Recording '{folder.name}': {total} matching event(s)"
+            + (f", showing the last {len(events)}" if len(events) < total else "") + ":")
+    return head + "".join("\n  " + recorder.format_event(e) for e in events)

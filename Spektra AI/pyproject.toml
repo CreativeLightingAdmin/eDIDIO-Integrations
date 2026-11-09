@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 edidio-spektra-ai = "edidio_spektra_ai.__main__:main"
+edidio-spektra-recorder = "edidio_spektra_ai.recorder:main"
 
 [tool.setuptools]
 packages = ["edidio_spektra_ai"]

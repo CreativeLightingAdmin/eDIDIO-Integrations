@@ -137,6 +137,9 @@ and ends with a save. Indices are 0-based (List 1 = 0); replies show both.
 - **Watch and notify**: start_watching / recent_events / stop_watching,
   notify_when (ready-made events), notify_on (raw conditions),
   list_notifications / clear_notifications.
+- **Record while nobody is watching**: recorder_start (a background process that
+  keeps logging events to disk after the chat ends), recorder_status,
+  recorder_stop, recorded_events (search what it captured).
 
 ## Commands (inputs, list steps, logic, run_command)
 
