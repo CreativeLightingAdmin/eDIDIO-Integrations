@@ -56,6 +56,9 @@ and troubleshoot — in plain language:
 - `set_dali_line` (set a line to DALI + reboot), `commission_dali` (robust multi-pass
   addressing + memory-bank grouping into physical fixtures, with an expected-count
   report).
+- `dali_gear_settings` / `preview_dali_gear_settings` (power-on, system-failure,
+  min/max levels, fade time/rate, extended fade; read back after),
+  `dali_scene_levels` / `preview_dali_scene` (store or remove a scene level, read back).
 - `dali_add_to_group`, `dali_remove_from_group`, `dali_set_scenes`, `dali_set_fade_time`, `dali_query_groups`,
   `dali_recall_scene`.
 
@@ -164,7 +167,11 @@ line; reboots the controller and reconnects).
 **SD card** (models with a card) — `sd_overview` (space, and each log folder's
 state and size), `sd_list_files`, `sd_read_file`, `sd_download` (binary logs too),
 `sd_search` (find lines in the newest log files, e.g. when an input fired, or
-`ERROR`).
+`ERROR`; binary logs are decoded first), `sd_read_log` (decodes the binary logs:
+`logs/dali` - every DALI frame sent and received, with collisions, timeouts and
+DALI-2 sensor events - and `logs/events` - inputs, sensors, lists, schedules,
+config changes, boots, network connections; filter by text, errors or time; also
+decodes a file already downloaded).
 
 **Settings, names, Wi-Fi** — `get_device_settings` / `preview_device_settings` (name,
 project, location, UTC offset, daylight saving, DALI polling and timing),

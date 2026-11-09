@@ -245,3 +245,12 @@ def test_dt8_xy_zone_matches_spektraplus_conversion():
     x = msgs[0].dtr.dtr[0] | msgs[0].dtr.dtr[1] << 8
     assert abs(x / 65535 - 0.5362) < 0.0005 and msgs[2].arg == 200
     assert msgs[3].type8 == v2pb.Type8CommandType.ACTIVATE
+
+
+def test_dali_gear_encoding():
+    from edidio_spektra_ai import dali_gear as g
+    assert g.target_byte(3) == 0x07 and g.target_byte(66) == 0x85 and g.target_byte(255) == 0xFF
+    assert g.nearest_code(g.FADE_TIME, 2.8) == 5 and g.nearest_code(g.FADE_RATE, 45) == 7
+    code = g.extended_fade_code(30)
+    assert g.extended_fade_seconds(code) == 30.0
+    assert g.extended_fade_seconds(g.extended_fade_code(0.5)) == 0.5

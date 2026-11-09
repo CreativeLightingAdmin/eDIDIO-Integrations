@@ -48,11 +48,14 @@ hardware, and what is still to do.
 - Live authoring: lists (including list 1 rewriting the others), latching and
   momentary inputs, outputs, logic, schedules with any command, sensors, DMX-to-DALI
   translations, burn-ins, zones, names, device/network/clock settings, line types.
-- Health check, diagnostics, device log, SD card listing/reading/search.
+- Health check, diagnostics, device log, SD card listing/reading/search, and
+  decoding of the binary DALI bus logs (DAL_*.BIN) and event logs (EVT_*.BIN).
 - Live state, `run_command`, profile changes, live colour on DMX and DALI zones,
   per address and by DALI group, and DALI DT8 RGBWAF and xy zones (levels and DT8
   colour values read back from the fittings, frames seen on the bus).
-- DALI: commissioning (re-address all, and new gear only), groups, scenes, fade,
+- DALI: commissioning (re-address all, and new gear only), groups, scenes (store,
+  remove, read back, recall), gear settings (power-on, system failure, min/max, fade
+  time/rate, extended fade - written and read back), fade,
   levels and status, memory bank 0, multi-channel driver re-addressing into channel
   order. DT8: colour features, RGBWAF, colour temperature (incl. clamping to the
   driver's range) and xy (incl. the out-of-range flag), all read back.
@@ -96,6 +99,11 @@ hardware, and what is still to do.
 - **SD capacity:** the controller answers SD_OK with 0 of 0 bytes when it has not
   measured the card. The protocol defines SD_CAPACITY_UNKNOWN for that.
   `sd_overview` reports the space as unknown.
+- **Event log stops reaching the SD card:** on the bench unit, `logs/LOGMETA.DAT`
+  says the controller is writing EVT_1576, but that file was never created. The
+  last event file is from weeks earlier, while the category still reports
+  "recording". The DALI and text logs are still being written. `sd_read_log` and
+  `sd_search` warn when the current file is missing.
 
 ## Still to do
 

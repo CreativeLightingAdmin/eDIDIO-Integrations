@@ -786,6 +786,26 @@ def _newest(entries: list) -> list:
     return sorted(entries, key=lambda e: (e["modified"], e["name"]), reverse=True)
 
 
+async def _log_order(names: list) -> tuple:
+    """(names newest first, note). Uses the firmware's rotation index
+    (logs/LOGMETA.DAT) when it can be read - file numbers wrap at 10000 and dates
+    follow the controller clock. The note says if the file the firmware says it is
+    writing does not exist (that category has stopped reaching the card)."""
+    from . import sd_logs
+    prefix = names[0].split("_")[0].upper() if names else ""
+    current, note = None, ""
+    try:
+        meta = sd_logs.parse_logmeta(
+            (await ops.sd_read(_controller, sd_logs.LOGMETA_PATH))["data"])
+        current = (meta.get(prefix) or {}).get("current")
+    except Exception:  # noqa: BLE001
+        pass
+    if current is not None and not any(sd_logs._number(n) == current for n in names):
+        note = (f"NOTE: the controller says it is writing {prefix}_{current:04d}, but that "
+                "file is not on the card - nothing newer than the file below was logged.\n")
+    return sd_logs.latest_first(names, current), note
+
+
 @server.tool()
 async def sd_overview() -> str:
     """The controller's SD card: free/total space, and each log category's folder,
@@ -813,7 +833,7 @@ async def sd_overview() -> str:
                     f"{_human(e['current_disk_bytes']):>9}  (budget {e['budget_permille'] / 10:.0f}%,"
                     f" files up to {e['max_file_size_kb']} KB)")
     rows.append(f"Logs total: {_human(used)}. Text logs (.LOG) can be read with sd_read_file; "
-                ".BIN logs are binary (download them with sd_download).")
+                ".BIN logs (DALI bus, events) are decoded by sd_read_log.")
     return "\n".join(rows)
 
 
@@ -858,9 +878,9 @@ async def sd_read_file(path: str, tail_kb: int = 8, offset: int = -1, length: in
     except Exception as err:  # noqa: BLE001
         return _err(err)
     data = res["data"]
-    if b"\x00" in data[:256]:
-        return (f"{res['path']} looks binary ({res['file_size']} bytes). Use sd_download "
-                "to save it.")
+    if path.upper().endswith(".BIN") or b"\x00" in data[:256]:
+        return (f"{res['path']} is binary ({_human(res['file_size'])}). DALI and event "
+                "logs (.BIN): use sd_read_log to decode them; sd_download saves the file.")
     text = data.decode("utf-8", errors="replace")
     if res["offset"] > 0 and "\n" in text:
         text = text.split("\n", 1)[1]           # drop the partial first line
@@ -883,25 +903,89 @@ async def sd_download(path: str, out_path: str) -> str:
 
 
 @server.tool()
+async def sd_read_log(path: str = "", last: int = 40, text: str = "",
+                      errors_only: bool = False, since: str = "", until: str = "",
+                      local_file: str = "") -> str:
+    """Decode a binary log from the SD card: DALI bus logs ('logs/dali/DAL_0003.BIN':
+    every frame sent and received, with status - collisions, timeouts, no-echo) and
+    event logs ('logs/events/EVT_0002.BIN': inputs, sensors, lists, schedules,
+    config changes, boots, network connections, Spektra starts/stops).
+    path: a file, or a folder ('logs/dali') to read the file being written now.
+    local_file: decode
+    a file already on this computer instead (e.g. from sd_download or SpektraPlus).
+    Shows the last `last` matching entries; filter with `text` (case-insensitive),
+    `errors_only`, and `since` / `until` ('2026-11-09 14:00', controller local time).
+    Errors are marked '!!'. Read-only."""
+    import datetime as dt
+    from . import sd_logs
+    note = ""
+    try:
+        def when(s):
+            return dt.datetime.fromisoformat(s.strip().replace("T", " ")) if s.strip() else None
+        since_t, until_t = when(since), when(until)
+        if local_file:
+            with open(local_file, "rb") as fh:
+                data, name = fh.read(), local_file
+        else:
+            if not path:
+                return "Give path (an SD file or folder) or local_file."
+            _controller._require()
+            name = path
+            if not path.upper().endswith(".BIN"):
+                listing = await ops.sd_list(_controller, path)
+                bins, note = await _log_order([e["name"] for e in listing["entries"]
+                                         if not e["is_dir"]
+                                         and e["name"].upper().endswith(".BIN")])
+                if not bins:
+                    return f"No .BIN logs in {listing['path']}."
+                name = f"{listing['path']}/{bins[0]}"
+            data = (await ops.sd_read(_controller, name))["data"]
+        header, entries = sd_logs.decode(data)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    picked = sd_logs.select(entries, text=text, errors_only=errors_only,
+                            since=since_t, until=until_t)
+    shown = picked[-max(1, last):]
+    filt = " matching" if (text or errors_only or since_t or until_t) else ""
+    head = note + (f"{name} ({_human(len(data))}): {sd_logs.summarise(header, entries)}.\n"
+            f"{len(picked)}{filt} entries" + (f", showing the last {len(shown)}"
+                                             if len(shown) < len(picked) else "") + ":")
+    return head + "".join("\n  " + sd_logs.format_entry(e) for e in shown)
+
+
+@server.tool()
 async def sd_search(folder: str, text: str, files: int = 5, max_lines: int = 60) -> str:
     """Search the newest `files` log files in an SD folder (e.g. 'logs/trig',
-    'logs/sys', 'logs/sensor', 'logs/network') for lines containing `text`
-    (case-insensitive). Good for 'when did input 3 fire?' or 'any errors today?'
-    (text 'ERROR' / 'WARN'). Read-only."""
+    'logs/sys', 'logs/sensor', 'logs/network', and the binary 'logs/dali' and
+    'logs/events', which are decoded first) for lines containing `text`
+    (case-insensitive). Good for 'when did input 3 fire?', 'any errors today?'
+    (text 'ERROR' / 'WARN' / '!!') or 'every frame to address 4' ('address 4 ').
+    Read-only."""
+    from . import sd_logs
+    note = ""
     try:
         _controller._require()
         listing = await ops.sd_list(_controller, folder)
-        logs = [e for e in _newest(listing["entries"]) if not e["is_dir"]
-                and e["name"].upper().endswith(".LOG")][:max(1, files)]
+        names, note = await _log_order([e["name"] for e in listing["entries"] if not e["is_dir"]
+                                  and e["name"].upper().endswith((".LOG", ".BIN"))])
+        logs = [{"name": n} for n in names[:max(1, files)]]
         hits = []
-        for e in logs:
+        for e in reversed(logs):                     # oldest first, newest hits last
             res = await ops.sd_read(_controller, f"{listing['path']}/{e['name']}")
-            for line in res["data"].decode("utf-8", errors="replace").splitlines():
+            if sd_logs.is_binary_log(res["data"]):
+                try:
+                    _h, entries = sd_logs.decode(res["data"])
+                except ValueError:
+                    continue
+                lines = [sd_logs.format_entry(x) for x in entries]
+            else:
+                lines = res["data"].decode("utf-8", errors="replace").splitlines()
+            for line in lines:
                 if text.lower() in line.lower():
                     hits.append(f"  {e['name']}: {line}")
     except Exception as err:  # noqa: BLE001
         return _err(err)
-    head = (f"'{text}' in the newest {len(logs)} file(s) of {listing['path']}: "
+    head = note + (f"'{text}' in the newest {len(logs)} file(s) of {listing['path']}: "
             f"{len(hits)} line(s)")
     return head + ("\n" + "\n".join(hits[-max_lines:]) if hits else ".") + (
         f"\n(showing the last {max_lines})" if len(hits) > max_lines else "")
@@ -2263,3 +2347,190 @@ async def dali_dt8_info(line: int, address: int) -> str:
         names = ["red", "green", "blue", "white", "amber", "free"]
         rows.append("  RGBWAF now: " + ", ".join(f"{n} {v}" for n, v in zip(names, i["rgbwaf"])))
     return "\n".join(rows)
+
+
+# --- DALI gear settings and scene levels ------------------------------------------------
+
+async def _gear_targets(line: int, spec: str) -> tuple:
+    """'0-3' / 'g2' / 'all' -> (command targets, addresses to read back)."""
+    targets = [255 if t == 80 else t for t in _dali_targets(spec)]
+    readback = []
+    for t in targets:
+        if t <= 63:
+            readback.append(t)
+        else:
+            present = [d["address"] for d in await _controller.dali_scan(line)]
+            if t == 255:
+                readback += present
+            else:
+                readback += [a for a in present
+                             if (t - 64) in await _controller.dali_query_groups(line, a)]
+    return targets, sorted(set(readback))
+
+
+@server.tool()
+async def dali_gear_settings(line: int, addresses: str = "") -> str:
+    """Each DALI fitting's stored settings: actual, min, max and physical-min levels,
+    power-on and system-failure levels, fade time and rate, extended fade.
+    addresses: '0-3' (default: every fitting on the line). Read-only."""
+    from . import dali_gear as g
+    from .server import _parse_addresses
+    try:
+        addrs = (_parse_addresses(addresses) if addresses.strip()
+                 else [d["address"] for d in await _controller.dali_scan(line)])
+        rows = [f"DALI line {line}:"]
+        for a in addrs:
+            s = await g.read_settings(_controller, line, a)
+            rows.append(
+                f"  address {a}: level {s.get('actual_level')}, min {s.get('min_level')} "
+                f"(physical {s.get('physical_min')}), max {s.get('max_level')}, power-on "
+                f"{g.describe_level(s.get('power_on_level'))}, system failure "
+                f"{g.describe_level(s.get('system_failure_level'))}, fade "
+                f"{s.get('fade_time_s')} s (code {s.get('fade_time_code')}), rate "
+                f"{s.get('fade_rate_steps_s')} steps/s, extended fade {s.get('extended_fade_s')} s")
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return "\n".join(rows) if len(rows) > 1 else f"No DALI gear on line {line}."
+
+
+@server.tool()
+async def preview_dali_gear_settings(line: int, target: str, power_on: str = "",
+                                     system_failure: str = "", min_level: int = -1,
+                                     max_level: int = -1, fade_seconds: float = -1,
+                                     fade_rate: float = -1,
+                                     extended_fade_seconds: float = -1) -> str:
+    """Change stored DALI gear settings on target ('0-3', 'g2' or 'all'):
+    power_on / system_failure: a level 0-254, or 'last' (power-on: last level;
+    system failure: no change); min_level / max_level 0-254 (min >= the gear's
+    physical minimum, which it enforces); fade_seconds (nearest standard fade time,
+    0 = use extended fade); fade_rate (steps/s, nearest standard rate);
+    extended_fade_seconds (0.1 s - 16 min; used when fade time is 0). Only what you
+    give changes. Returns a token; confirm writes them and reads every fitting back."""
+    from . import dali_gear as g
+    try:
+        targets, readback = await _gear_targets(line, target)
+        plan = []
+
+        def level(v, name):
+            v = v.strip().lower()
+            if v in ("last", "mask", "no change"):
+                return g.MASK
+            n = int(v)
+            if not 0 <= n <= 254:
+                raise ValueError(f"{name} is 0-254 or 'last'")
+            return n
+        if power_on:
+            plan.append(("power_on_level", level(power_on, "power_on")))
+        if system_failure:
+            plan.append(("system_failure_level", level(system_failure, "system_failure")))
+        for key, v in (("min_level", min_level), ("max_level", max_level)):
+            if v >= 0:
+                if not 1 <= v <= 254:
+                    return f"{key} is 1-254."
+                plan.append((key, v))
+        if min_level >= 0 and max_level >= 0 and min_level > max_level:
+            return "min_level must not exceed max_level."
+        if fade_seconds >= 0:
+            plan.append(("fade_time", g.nearest_code(g.FADE_TIME, fade_seconds)))
+        if fade_rate >= 0:
+            plan.append(("fade_rate", g.nearest_code(g.FADE_RATE, fade_rate)))
+        if extended_fade_seconds >= 0:
+            plan.append(("extended_fade", g.extended_fade_code(extended_fade_seconds)))
+        if not plan:
+            return "Nothing to change."
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+
+    def show(k, v):
+        if k == "fade_time":
+            return f"fade time {g.FADE_TIME[v]} s (code {v})"
+        if k == "fade_rate":
+            return f"fade rate {g.FADE_RATE[v]} steps/s (code {v})"
+        if k == "extended_fade":
+            return f"extended fade {g.extended_fade_seconds(v)} s"
+        return f"{k.replace('_', ' ')} {g.describe_level(v)}"
+    body = (f"  DALI line {line}, target {target}: " + "; ".join(show(k, v) for k, v in plan)
+            + f"\n  will read back addresses {readback or '(none found)'}")
+
+    async def run():
+        for t in targets:
+            for k, v in plan:
+                await g.store(_controller, line, t, g.STORE[k], v)
+        rows = []
+        for a in readback:
+            s = await g.read_settings(_controller, line, a)
+            bad = []
+            for k, v in plan:
+                got = {"fade_time": s.get("fade_time_code"), "fade_rate": s.get("fade_rate_code"),
+                       "extended_fade": None}.get(k, s.get(k))
+                if k == "extended_fade":
+                    got = v if s.get("extended_fade_s") == g.extended_fade_seconds(v) else s.get("extended_fade_s")
+                if k == "min_level" and s.get("physical_min") and v < s["physical_min"]:
+                    v = s["physical_min"]            # the gear raises it to its physical minimum
+                if got != v:
+                    bad.append(f"{k} {got} (wanted {v})")
+            rows.append(f"  address {a}: " + ("OK" if not bad else "; ".join(bad)))
+        return "Written and read back:\n" + "\n".join(rows) if rows else "Written (nothing to read back)."
+
+    token = _new_token([], body)
+    from .server import _pending
+    _pending[token]["runner"] = run
+    return f"PREVIEW:\n{body}\nCall confirm(token=\"{token}\") to write."
+
+
+@server.tool()
+async def dali_scene_levels(line: int, addresses: str = "") -> str:
+    """The 16 stored DALI scene levels of each fitting ('-' = not in that scene).
+    addresses: '0-3' (default: every fitting on the line). Read-only."""
+    from . import dali_gear as g
+    from .server import _parse_addresses
+    try:
+        addrs = (_parse_addresses(addresses) if addresses.strip()
+                 else [d["address"] for d in await _controller.dali_scan(line)])
+        rows = [f"DALI line {line} scenes 0-15:"]
+        for a in addrs:
+            sc = await g.read_scenes(_controller, line, a)
+            rows.append(f"  address {a}: " + " ".join("-" if v is None else str(v) for v in sc))
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return "\n".join(rows) if len(rows) > 1 else f"No DALI gear on line {line}."
+
+
+@server.tool()
+async def preview_dali_scene(line: int, target: str, scene: int, level: str) -> str:
+    """Store a DALI scene level in the gear: target '0-3', 'g2' or 'all'; scene 0-15;
+    level 0-254, or 'remove' to take the target out of the scene. Recall it with
+    dali_recall_scene or run_command dali_scene. Returns a token; confirm writes and
+    reads every fitting back."""
+    from . import dali_gear as g
+    try:
+        if not 0 <= scene <= 15:
+            return "scene is 0-15."
+        remove = level.strip().lower() == "remove"
+        value = None if remove else int(level)
+        if value is not None and not 0 <= value <= 254:
+            return "level is 0-254 or 'remove'."
+        targets, readback = await _gear_targets(line, target)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    what = "remove from" if remove else f"store level {value} as"
+    body = (f"  DALI line {line}, target {target}: {what} scene {scene}\n"
+            f"  will read back addresses {readback or '(none found)'}")
+
+    async def run():
+        for t in targets:
+            if remove:
+                await g.store(_controller, line, t, g.REMOVE_SCENE_BASE + scene, None)
+            else:
+                await g.store(_controller, line, t, g.STORE_SCENE_BASE + scene, value)
+        rows = []
+        for a in readback:
+            v = await g.query(_controller, line, a, g.Q_SCENE_BASE + scene)
+            want = g.MASK if remove else value
+            rows.append(f"  address {a}: scene {scene} = {v} " + ("OK" if v == want else f"(wanted {want})"))
+        return "Written and read back:\n" + "\n".join(rows) if rows else "Written."
+
+    token = _new_token([], body)
+    from .server import _pending
+    _pending[token]["runner"] = run
+    return f"PREVIEW:\n{body}\nCall confirm(token=\"{token}\") to write."
