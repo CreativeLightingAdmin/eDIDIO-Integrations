@@ -1050,6 +1050,12 @@ class SpektraController:
         return await self._dali_send_seq(
             dali.colour_temperature_messages(self._next_id, line, address, mirek))
 
+    async def dali_xy(self, line: int, address: int, x: float, y: float) -> list:
+        """DT8 xy colour: CIE 1931 x, y (0-1), sent as x*65536 / y*65536."""
+        return await self._dali_send_seq(dali.xy_messages(
+            self._next_id, line, address, min(int(round(x * 65536)), 65534),
+            min(int(round(y * 65536)), 65534)))
+
     async def dali_rgbwaf(self, line: int, address: int, rgb: list, waf: list,
                           arc_level: int = 254) -> list:
         return await self._dali_send_seq(

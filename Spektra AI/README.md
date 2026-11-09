@@ -141,7 +141,9 @@ every day that differs; `strict` also lists days you did not mention.
 
 **Live colour** — `set_zone_colour` puts a zone on a colour right now (`#RRGGBB` or
 one level per channel) for trying colours while designing; DMX and DALI zones,
-per address or by DALI group (`dali_group`). The controller itself always drives a
+per address or by DALI group (`dali_group`), and DALI DT8 RGBWAF and xy zones;
+`dali_set_colour` sets DT8 colour temperature (kelvin), xy or RGBWAF on a fitting, and
+`dali_dt8_info` reads a DT8 driver's modes, live colour and out-of-range flags back. The controller itself always drives a
 zone per address.
 
 **Network and clock** — `preview_network_settings` (DHCP, static address, DNS;

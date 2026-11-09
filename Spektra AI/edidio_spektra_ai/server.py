@@ -347,10 +347,13 @@ async def confirm(token: str) -> str:
             res = await pending["dali_commission"]()
         except Exception as err:  # noqa: BLE001
             return f"Error during commissioning: {err}"
+        passes = res.get("passes") or []
+        new = sum(p if isinstance(p, int) else len(p or []) for p in passes)
         if res.get("ok"):
-            return (f"Commissioning done: addressed {res['addressed']} device(s) "
-                    f"at {res.get('addresses', [])}.")
-        return f"Commissioning failed after {res.get('addressed', 0)}: {res.get('error')}"
+            return (f"Commissioning done in {len(passes)} pass(es): {new} new address(es) "
+                    f"written. Gear on the line now: {res.get('total_addressed', 0)} at "
+                    f"{res.get('addresses', [])}.")
+        return f"Commissioning failed after {new} address(es): {res.get('error')}"
     try:
         acks = await _controller.send_and_ack(pending["messages"])
     except Exception as err:  # noqa: BLE001
@@ -756,18 +759,27 @@ async def dali_identify(line: int, address: int, blinks: int = 3) -> str:
 @server.tool()
 async def dali_set_colour(line: int, address: int, mirek: int = 0,
                           rgb: list | None = None, waf: list | None = None,
-                          arc_level: int = 254) -> str:
-    """Set DT8 colour on a DALI fixture. Give `mirek` for colour temperature (mireds =
-    1,000,000/Kelvin, e.g. 370≈2700K warm, 250=4000K, 154≈6500K cool), OR `rgb`
-    ([r,g,b]) and optional `waf` ([w,a,f]) for RGBWAF. Transient control."""
+                          arc_level: int = 254, kelvin: int = 0,
+                          x: float = -1, y: float = -1) -> str:
+    """Set DT8 colour on a DALI fixture (or group 64+g / broadcast 255 as address).
+    Colour temperature: `kelvin` (e.g. 2700 warm, 4000, 6500 cool) or `mirek`
+    (1,000,000/K). CIE xy: `x` and `y` (0-1, e.g. 0.3127, 0.3290 = D65 white).
+    RGBWAF: `rgb` ([r,g,b]) and optional `waf` ([w,a,f]) with `arc_level`.
+    dali_dt8_info reads the result back. Transient control."""
     try:
-        if rgb is not None:
+        if kelvin:
+            mirek = round(1_000_000 / kelvin)
+        if x >= 0 and y >= 0:
+            if not (0 <= x < 1 and 0 <= y < 1):
+                return "x and y are CIE 1931 coordinates, 0-1."
+            acks = await _controller.dali_xy(line, address, x, y)
+        elif rgb is not None:
             acks = await _controller.dali_rgbwaf(line, address, rgb, waf or [0, 0, 0],
                                                  arc_level)
         elif mirek:
             acks = await _controller.dali_colour_temperature(line, address, mirek)
         else:
-            return "Provide either mirek (colour temperature) or rgb (RGBWAF)."
+            return "Give kelvin or mirek, x and y, or rgb."
     except Exception as err:  # noqa: BLE001
         return f"Error: {err}"
     ok = all(a.get("ok") for a in acks)
@@ -793,8 +805,12 @@ async def preview_dali_commission(line: int, readdress: bool = False,
 
     token = _new_token([], preview, on_success=None)
     _pending[token]["dali_commission"] = _run
-    return (f"PREVIEW (nothing written yet):\n{preview}\n\nThis is destructive to DALI "
-            f'addresses. Call confirm(token="{token}") to run commissioning.')
+    effect = ("This CLEARS every short address on the line and re-addresses all gear."
+              if readdress else
+              "This WRITES short addresses to unaddressed gear only; gear that already "
+              "has an address is not touched.")
+    return (f"PREVIEW (nothing written yet):\n{preview}\n\n{effect} "
+            f'Call confirm(token="{token}") to run commissioning.')
 
 
 @server.tool()

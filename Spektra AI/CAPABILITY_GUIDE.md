@@ -121,7 +121,7 @@ and ends with a save. Indices are 0-based (List 1 = 0); replies show both.
   get_dmx_settings / preview_dmx_settings (timing, slots, 16-bit).
 - **DALI**: dali_scan, dali_levels, commission_dali / preview_dali_commission, set_dali_line,
   dali_add_to_group, dali_remove_from_group, dali_set_scenes, dali_set_fade_time, dali_query_groups,
-  dali_recall_scene, dali_set_level, dali_identify, dali_set_colour (DT8),
+  dali_recall_scene, dali_set_level, dali_identify, dali_set_colour / dali_dt8_info (DT8),
   dali_devices / preview_dali_channel_order (multi-channel drivers in channel order).
   DALI-2 control devices: dali2_scan, dali2_device, preview_dali2_readdress,
   dali_find_duplicates, preview_dali2_instance (enable, report timer, hysteresis).

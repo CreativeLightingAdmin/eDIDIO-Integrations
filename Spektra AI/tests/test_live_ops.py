@@ -215,3 +215,33 @@ def test_slot_snapshot_compare():
     d = compare_snapshots(old, new)
     assert d["sequences"] == {"added": [6], "removed": [5], "changed": [1]}
     assert d["themes"] == {"added": [], "removed": [], "changed": []}
+
+
+def test_dt8_zone_messages_stage_all_dtrs_then_activate():
+    from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+
+    from edidio_spektra_ai import colour
+    ids = iter(range(1, 100))
+    z = {"index": 1, "protocol": 2, "numChannels": 4, "numLights": 2, "linemask": 1,
+         "startAddress": 5, "daligroupoffset": None}
+    msgs = [v2pb.EdidioMessage.FromString(f[3:]).dali_message
+            for f in colour.zone_messages(z, [255, 10, 20, 30], lambda: next(ids))]
+    assert len(msgs) == 8 and [m.address for m in msgs] == [5] * 4 + [6] * 4
+    assert list(msgs[0].dtr.dtr) == [254, 10, 20]            # RGB, capped
+    assert list(msgs[1].dtr.dtr) == [30, 0, 0]               # WAF padded: no leftovers
+    assert msgs[2].arg == 254 and msgs[3].type8 == v2pb.Type8CommandType.ACTIVATE
+
+
+def test_dt8_xy_zone_matches_spektraplus_conversion():
+    from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+
+    from edidio_spektra_ai import colour
+    z = {"numChannels": 4, "numLights": 1, "linemask": 1, "startAddress": 0, "protocol": 3,
+         "channelColours": ["#FF0000", "#00FF00", "#0000FF", "#FFFFFF"], "index": 1}
+    assert colour.rgb_to_xy(*colour.combined_rgb255(z, [255, 255, 255, 0])) == (20495, 21562)   # D65 white
+    ids = iter(range(1, 50))
+    msgs = [v2pb.EdidioMessage.FromString(f[3:]).dali_message
+            for f in colour.zone_messages(z, [200, 50, 120, 30], lambda: next(ids))]
+    x = msgs[0].dtr.dtr[0] | msgs[0].dtr.dtr[1] << 8
+    assert abs(x / 65535 - 0.5362) < 0.0005 and msgs[2].arg == 200
+    assert msgs[3].type8 == v2pb.Type8CommandType.ACTIVATE

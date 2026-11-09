@@ -50,10 +50,12 @@ hardware, and what is still to do.
   translations, burn-ins, zones, names, device/network/clock settings, line types.
 - Health check, diagnostics, device log, SD card listing/reading/search.
 - Live state, `run_command`, profile changes, live colour on DMX and DALI zones,
-  per address and by DALI group (levels read back from the fittings and frames
-  seen on the bus).
-- DALI: commissioning, groups, scenes, fade, levels and status, memory bank 0,
-  multi-channel driver re-addressing into channel order.
+  per address and by DALI group, and DALI DT8 RGBWAF and xy zones (levels and DT8
+  colour values read back from the fittings, frames seen on the bus).
+- DALI: commissioning (re-address all, and new gear only), groups, scenes, fade,
+  levels and status, memory bank 0, multi-channel driver re-addressing into channel
+  order. DT8: colour features, RGBWAF, colour temperature (incl. clamping to the
+  driver's range) and xy (incl. the out-of-range flag), all read back.
 - DALI-2: device scan and inspection, re-addressing (24-bit swap), duplicate check,
   instance enable/settings, occupancy and daylight harvesting with a real sensor.
 - RDM: discovery, details, identify, start address and label.
@@ -72,6 +74,14 @@ hardware, and what is still to do.
 - RDM personality change (start address and label verified).
 - 4-pole and 9-pole models.
 
+## Behaviour to know (not faults)
+
+- A DT8 driver moves an xy point that is outside its gamut to the nearest colour it
+  can make and sets "xy out of range" (colour temperature outside its range is
+  clamped the same way). SpektraPlus's xy conversion uses very wide primaries, so
+  pure green or blue in a DT8 xy zone is usually out of range on real drivers.
+  `dali_dt8_info` shows the flag and the point the driver used.
+
 ## Firmware issues found (to report)
 
 - **255 on DALI Spektra zones:** the controller's Spektra engine sends a stored 255
@@ -88,7 +98,7 @@ hardware, and what is still to do.
 
 - DALI-2 push-button authoring on the controller (a live `preview_dali_input`; today
   DALI inputs are written through a `.spektra` push).
-- Live colour for DALI DT8 zones and for zones that continue across lines.
+- Live colour for zones that continue across lines.
 - Spreadsheet import/export of inputs, schedules, lists and sensors.
 - User accounts and roles (login secrets per role).
 - Link settings writes (controller-to-controller UDP link: enable, type, mask,

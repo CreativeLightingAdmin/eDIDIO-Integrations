@@ -1543,8 +1543,7 @@ async def set_zone_colour(zone: int, colour: str, fade_ms: int = 50,
     zone first (it would overwrite the colour). dali_group (DALI zones, 0-15): send
     channel n to DALI group dali_group+n instead of per address - one frame per
     channel however many lights (each channel's gear must be in its group).
-    Transient: nothing is stored. DMX and DALI zones; DALI DT8 zones are not
-    supported yet."""
+    Transient: nothing is stored. DMX, DALI, and DALI DT8 RGBWAF and xy zones."""
     from . import colour as _colour
     try:
         zones = await _controller.pull_zones()
@@ -1553,7 +1552,8 @@ async def set_zone_colour(zone: int, colour: str, fade_ms: int = 50,
             return f"Zone {zone + 1} (index {zone}) is not set up on this controller."
         levels = _colour.parse_levels(colour, z)
         if dali_group >= 0:
-            if z.get("protocol") != _colour.PROTOCOL_DALI:
+            if z.get("protocol") not in (_colour.PROTOCOL_DALI, _colour.PROTOCOL_DT8_RGBWAF,
+                                         _colour.PROTOCOL_DT8_XY):
                 return "dali_group is for DALI zones."
             z = dict(z, daligroupoffset=dali_group)
         msgs = _colour.zone_messages(z, levels, _controller._next_id, fade_ms=fade_ms)
@@ -1563,7 +1563,7 @@ async def set_zone_colour(zone: int, colour: str, fade_ms: int = 50,
     except Exception as err:  # noqa: BLE001
         return _err(err)
     bad = [a for a in acks if not a.get("ok")]
-    kind = "DMX" if z.get("protocol") == _colour.PROTOCOL_DMX else "DALI"
+    kind = {0: "DALI", 1: "DMX", 2: "DALI DT8", 3: "DALI DT8 xy"}.get(z.get("protocol"), "DALI")
     what = (f"Zone {zone + 1}: {z.get('numLights')} light(s) x {z.get('numChannels')} "
             f"channel(s) ({kind}) set to {levels}")
     if bad:
@@ -1847,7 +1847,7 @@ async def preview_dali_channel_order(line: int, start_address: int = -1,
 
 # --- zone editor ---------------------------------------------------------------------
 
-_ZONE_PROTOCOLS = {"dali": 0, "dmx": 1}
+_ZONE_PROTOCOLS = {"dali": 0, "dmx": 1, "dt8": 2, "dt8_xy": 3}
 _COLOUR_NAMES = {"red": "#FF0000", "green": "#00FF00", "blue": "#0000FF", "white": "#FFFFFF",
                  "warm": "#FFD580", "cool": "#AAD6FF", "amber": "#FFBF00",
                  "lime": "#BFFF00", "uv": "#8000FF"}
@@ -1856,8 +1856,9 @@ _COLOUR_NAMES = {"red": "#FF0000", "green": "#00FF00", "blue": "#0000FF", "white
 @server.tool()
 async def preview_zone(zone: int, protocol: str, line: int, lights: int, channels: str,
                        start_address: int) -> str:
-    """Create or change a Spektra colour zone (0-based; Zone 1 = 0). protocol: dali or
-    dmx. line: 1-4. lights: how many fixtures. channels: the colour of each channel
+    """Create or change a Spektra colour zone (0-based; Zone 1 = 0). protocol: dali,
+    dmx, dt8 (DALI DT8 RGBWAF: one address per light, channels = its colours) or
+    dt8_xy (DALI DT8 colour coordinates: the channels are mixed into one xy point). line: 1-4. lights: how many fixtures. channels: the colour of each channel
     in order, e.g. 'red,green,blue,white' (also warm, cool, amber, lime, uv, or
     #RRGGBB). start_address: first DALI address / DMX channel; light n starts at
     start_address + n x channels. The controller always drives a zone per address
@@ -1869,7 +1870,7 @@ async def preview_zone(zone: int, protocol: str, line: int, lights: int, channel
         if old is None:
             return f"Zone {zone + 1} is not a zone slot on this controller."
         if protocol.lower() not in _ZONE_PROTOCOLS:
-            return "protocol: dali or dmx."
+            return "protocol: dali, dmx, dt8 or dt8_xy."
         cols = []
         for c in channels.split(","):
             c = c.strip().lower()
@@ -1877,8 +1878,9 @@ async def preview_zone(zone: int, protocol: str, line: int, lights: int, channel
             if not hexv or len(hexv) != 7:
                 return f"Unknown channel colour '{c}'."
             cols.append(hexv.upper())
-        n, is_dali = len(cols), protocol.lower() == "dali"
-        last = start_address + lights * n - 1
+        n, is_dali = len(cols), protocol.lower() in ("dali", "dt8", "dt8_xy")
+        per_light = 1 if protocol.lower() in ("dt8", "dt8_xy") else n
+        last = start_address + lights * per_light - 1
         if is_dali and (start_address < 0 or last > 63):
             return f"DALI addresses would run {start_address}-{last}; they must sit in 0-63."
         if not is_dali and not (1 <= start_address and last <= 512):
@@ -2225,3 +2227,38 @@ async def preview_dmx_settings(timing: str = "", line: int = 0, slots: int = 0,
         return _err(err)
     token = _new_token(msgs, "\n".join(rows))
     return "PREVIEW - DMX:\n" + "\n".join(rows) + f"\nCall confirm(token=\"{token}\")."
+
+
+@server.tool()
+async def dali_dt8_info(line: int, address: int) -> str:
+    """A DALI DT8 (colour) driver: which colour modes it supports (RGBWAF and how many
+    channels, colour temperature, xy, primaries), which mode is active, its live
+    RGBWAF colour values and arc level, read back with DT8 queries. Read-only."""
+    from . import colour as _colour
+    try:
+        _controller._require()
+        i = await _colour.dt8_info(_controller, line, address)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if i.get("features_raw") is None:
+        return f"Address {address} on line {line} does not answer DT8 queries (not DT8 gear?)."
+    rows = [f"DT8 driver at line {line} address {address}:",
+            f"  supports: {', '.join(i.get('supports') or ['?'])}",
+            f"  active colour mode: {i.get('active', '?')}"
+            + (f" - {'; '.join(i['flags'])}" if i.get("flags") else ""),
+            f"  arc level: {i.get('level')}"]
+    if i.get("tc_mirek"):
+        from .colour import mirek_to_kelvin
+        rows.append(f"  colour temperature now: {mirek_to_kelvin(i['tc_mirek'])} K "
+                    f"({i['tc_mirek']} mirek)")
+    lim = i.get("tc_limits_mirek") or {}
+    if lim.get("warmest") and lim.get("coolest"):
+        from .colour import mirek_to_kelvin
+        rows.append(f"  colour temperature range: {mirek_to_kelvin(lim['warmest'])} K - "
+                    f"{mirek_to_kelvin(lim['coolest'])} K")
+    if i.get("xy"):
+        rows.append(f"  xy now: x {i['xy'][0]}, y {i['xy'][1]}")
+    if i.get("rgbwaf"):
+        names = ["red", "green", "blue", "white", "amber", "free"]
+        rows.append("  RGBWAF now: " + ", ".join(f"{n} {v}" for n, v in zip(names, i["rgbwaf"])))
+    return "\n".join(rows)
