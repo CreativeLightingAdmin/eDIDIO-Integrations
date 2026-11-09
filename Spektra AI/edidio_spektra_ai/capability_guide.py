@@ -57,7 +57,8 @@ and ends with a save. Indices are 0-based (List 1 = 0); replies show both.
 - **Author on the controller**: preview_list, preview_input (momentary or latching),
   preview_output, preview_logic, preview_sensor / preview_remove_sensor,
   preview_translation (DMX to DALI), preview_burnin, preview_schedule (any command),
-  preview_sequence / preview_theme / preview_calendar, clear_schedule, preview_names.
+  preview_sequence / preview_theme / preview_calendar, clear_schedule, preview_names,
+  preview_zone (colour zones).
 - **Read the configuration**: list_lists, list_io, list_logic, list_sensors,
   list_translations, list_burnins, list_sequences, list_themes, list_alarms,
   get_calendar, check_calendar (expected dates vs the calendar), get_names,
@@ -67,8 +68,10 @@ and ends with a save. Indices are 0-based (List 1 = 0); replies show both.
   preview_logging, wifi_status / preview_wifi_settings (ADDICT).
 - **DALI**: dali_scan, dali_levels, commission_dali / preview_dali_commission, set_dali_line,
   dali_add_to_group, dali_set_scenes, dali_set_fade_time, dali_query_groups,
-  dali_recall_scene, dali_set_level, dali_identify, dali_set_colour (DT8).
-  DALI-2 control devices: dali2_scan, dali2_device.
+  dali_recall_scene, dali_set_level, dali_identify, dali_set_colour (DT8),
+  dali_devices / preview_dali_channel_order (multi-channel drivers in channel order).
+  DALI-2 control devices: dali2_scan, dali2_device, preview_dali2_readdress,
+  dali_find_duplicates, preview_dali2_instance (enable, report timer, hysteresis).
 - **RDM** (DMX output line): rdm_discover, rdm_get, rdm_identify, preview_rdm_set.
 - **.spektra files**: pull_spektra_file, preview_push_spektra (only the connected
   controller, only what changed), sync_status, summarize_spektra,

@@ -102,6 +102,17 @@ warning / idle actions, daylight harvesting setpoint, Leader/Follower co-op grou
 per profile), `preview_remove_sensor`, `sensor_command` (identify, mute, unmute,
 override).
 
+**DALI-2 commissioning** — `preview_dali2_readdress` (move or swap a control
+device's address, checked after, and lists sensor slots still pointing at the old
+one), `dali_find_duplicates`, `preview_dali2_instance` (enable an instance; report
+timer, hysteresis, dead time, hold time).
+
+**Multi-channel DALI drivers and zones** — `dali_devices` (addresses grouped into
+physical devices from memory bank 0, with each channel's logical index),
+`preview_dali_channel_order` (re-address a driver's channels into channel order,
+e.g. RGBW on 0-3, checked after), `preview_zone` (colour zone editor; warns about
+stored sequences/themes that use 255, which DALI treats as "no change").
+
 **RDM** (on a DMX output line) — `rdm_discover` (fixtures with manufacturer, model,
 label, start address, footprint and personalities), `rdm_identify`,
 `preview_rdm_set` (start address, personality, label; read back after),
@@ -193,7 +204,7 @@ Restart Claude Desktop; the Spektra AI tools + the capability guide appear.
 ## Testing
 
 ```bash
-python -m pytest -q     # 204 tests, no controller required
+python -m pytest -q     # 205 tests, no controller required
 ```
 
 Everything is verified with **no controller** (stub clients + real-file fixtures).
@@ -235,7 +246,7 @@ Spektra AI/
 │   └── templates/           # bundled controller template (device skeleton)
 ├── tools/build_alma.py      # example: generate a project from a functionality statement
 ├── CAPABILITY_GUIDE.md      # generated snapshot of the guide
-└── tests/                   # 204 tests (stub clients + real-file fixtures)
+└── tests/                   # 205 tests (stub clients + real-file fixtures)
 ```
 
 ### Fidelity notes (mirroring SpektraPlus)

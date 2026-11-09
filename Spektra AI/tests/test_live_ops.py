@@ -194,3 +194,15 @@ def test_zone_colour_messages():
     msgs = [v2pb.EdidioMessage.FromString(x[3:]).dali_message
             for x in colour.zone_messages(grp, [1, 2], lambda: next(ids))]
     assert [d.address for d in msgs] == [66, 67]
+
+
+def test_dali_channel_order_plan():
+    from edidio_spektra_ai import dali_units
+    infos = [{"address": 0, "gtin": 1, "device_id": "A", "units": 4, "index": 2},
+             {"address": 1, "gtin": 1, "device_id": "A", "units": 4, "index": 1},
+             {"address": 2, "gtin": 1, "device_id": "A", "units": 4, "index": 0},
+             {"address": 3, "gtin": 1, "device_id": "A", "units": 4, "index": 3}]
+    dev = dali_units.group_devices(infos)[0]
+    assert dali_units.plan_order(dev, 0) == [(2, 0)]          # one swap fixes it
+    assert dali_units.plan_order(dev, 10) == [(2, 10), (1, 11), (0, 12), (3, 13)]
+    assert "NOT in channel order" in dali_units.describe([dev], 1)

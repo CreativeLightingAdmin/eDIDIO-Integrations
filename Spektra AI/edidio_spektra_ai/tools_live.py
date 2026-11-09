@@ -1747,3 +1747,306 @@ async def check_calendar(expected: str, year: int = 0, strict: bool = False) -> 
     except Exception as err:  # noqa: BLE001
         return _err(err)
     return calendar_check.format_report(res, y)
+
+
+# --- DALI devices / channel order -----------------------------------------------------
+
+async def _dali_unit_infos(line: int, addresses=None) -> list:
+    from . import dali_units
+    if addresses is None:
+        # A busy bus occasionally drops a reply: merge three scans so a channel is
+        # not missed (a re-addressing plan must see every channel).
+        found = set()
+        for _ in range(3):
+            found |= {d["address"] for d in await _controller.dali_scan(line)}
+        addresses = sorted(found)
+    return [await dali_units.unit_info(_controller, line, a) for a in addresses]
+
+
+@server.tool()
+async def dali_devices(line: int, addresses: str = "") -> str:
+    """Physical DALI devices on a line, from each address's memory bank 0: which
+    addresses belong to the same multi-channel driver (GTIN + serial), and each
+    channel's logical index (0 = first channel, e.g. red on RGBW) - flags channels
+    that are not on consecutive addresses in channel order. Read-only (scans the
+    line unless addresses are given)."""
+    from . import dali_units
+    from .server import _parse_addresses
+    try:
+        _controller._require()
+        infos = await _dali_unit_infos(line, _parse_addresses(addresses) if addresses.strip() else None)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if not infos:
+        return f"No DALI gear answered on line {line}."
+    return dali_units.describe(dali_units.group_devices(infos), line)
+
+
+@server.tool()
+async def preview_dali_channel_order(line: int, start_address: int = -1,
+                                     device_id: str = "") -> str:
+    """Re-address a multi-channel DALI device so its channels sit on consecutive
+    addresses in channel order: logical index n -> start_address + n (e.g. RGBW:
+    red 0, green 1, blue 2, white 3). start_address -1 = the device's lowest address.
+    device_id picks one device when the line has several (see dali_devices). Swaps
+    addresses (groups and scenes move with each channel). Returns a token; confirm
+    runs the swaps and re-reads every channel's index to check."""
+    from . import dali_units
+    try:
+        _controller._require()
+        devices = dali_units.group_devices(await _dali_unit_infos(line))
+        multi = [d for d in devices if len(d["channels"]) > 1]
+        if device_id:
+            multi = [d for d in devices if (d["device_id"] or "").upper() == device_id.upper()]
+        if len(multi) != 1:
+            return (f"{len(multi)} matching multi-channel device(s) on line {line}; pass "
+                    "device_id (see dali_devices).")
+        dev = multi[0]
+        if dev["units"] and len(dev["channels"]) != dev["units"]:
+            return (f"Device {dev['device_id']} reports {dev['units']} channels but only "
+                    f"{len(dev['channels'])} answered; check the wiring/power and retry.")
+        start = start_address if start_address >= 0 else min(c["address"] for c in dev["channels"])
+        swaps = dali_units.plan_order(dev, start)
+        taken = {c["address"] for d in devices if d is not dev for c in d["channels"]}
+        clash = [start + c["index"] for c in dev["channels"] if start + c["index"] in taken]
+        if clash:
+            return (f"Addresses {clash} belong to another device; pick another start_address "
+                    "or move that device first.")
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    plan = "\n".join(f"  swap address {a} <-> {b}" for a, b in swaps) or "  (already in order)"
+    target = ", ".join(f"index {c['index']} -> {start + c['index']}"
+                       for c in sorted(dev["channels"], key=lambda c: c["index"]))
+    if not swaps:
+        return f"Device {dev['device_id']}: channels already in order ({target})."
+
+    async def run():
+        acks = [await dali_units.remap(_controller, line, a, b) for a, b in swaps]
+        infos = await _dali_unit_infos(line, [start + c["index"] for c in dev["channels"]])
+        wrong = [i for i in infos if i["index"] is None or i["address"] != start + i["index"]]
+        result = ", ".join(f"{i['address']}=index {i['index']}" for i in infos)
+        if any(not a["ok"] for a in acks) or wrong:
+            return (f"Problem: swaps {acks}; now {result}. Check with dali_devices before "
+                    "using these addresses.")
+        return f"Done and checked: {result}."
+
+    token = _new_token([], plan)
+    from .server import _pending
+    _pending[token]["runner"] = run
+    return (f"PREVIEW - device {dev['device_id']} ({len(dev['channels'])} channels) on line "
+            f"{line}: {target}\n{plan}\nThis WRITES DALI short addresses. "
+            f"Call confirm(token=\"{token}\") to re-address.")
+
+
+# --- zone editor ---------------------------------------------------------------------
+
+_ZONE_PROTOCOLS = {"dali": 0, "dmx": 1}
+_COLOUR_NAMES = {"red": "#FF0000", "green": "#00FF00", "blue": "#0000FF", "white": "#FFFFFF",
+                 "warm": "#FFD580", "cool": "#AAD6FF", "amber": "#FFBF00",
+                 "lime": "#BFFF00", "uv": "#8000FF"}
+
+
+@server.tool()
+async def preview_zone(zone: int, protocol: str, line: int, lights: int, channels: str,
+                       start_address: int, dali_group: int = -1) -> str:
+    """Create or change a Spektra colour zone (0-based; Zone 1 = 0). protocol: dali or
+    dmx. line: 1-4. lights: how many fixtures. channels: the colour of each channel
+    in order, e.g. 'red,green,blue,white' (also warm, cool, amber, lime, uv, or
+    #RRGGBB). start_address: first DALI address / DMX channel; light n starts at
+    start_address + n x channels. dali_group (DALI only, 0-15): address the channels
+    as groups g, g+1, ... instead of per light. Zones apply after a save, which this
+    includes. Returns a token."""
+    try:
+        zones = await _controller.pull_zones()
+        old = next((z for z in zones if z.get("index") == zone), None)
+        if old is None:
+            return f"Zone {zone + 1} is not a zone slot on this controller."
+        if protocol.lower() not in _ZONE_PROTOCOLS:
+            return "protocol: dali or dmx."
+        cols = []
+        for c in channels.split(","):
+            c = c.strip().lower()
+            hexv = _COLOUR_NAMES.get(c, c.upper() if c.startswith("#") else None)
+            if not hexv or len(hexv) != 7:
+                return f"Unknown channel colour '{c}'."
+            cols.append(hexv.upper())
+        n, is_dali = len(cols), protocol.lower() == "dali"
+        last = start_address + lights * n - 1
+        if is_dali and dali_group < 0 and (start_address < 0 or last > 63):
+            return f"DALI addresses would run {start_address}-{last}; they must sit in 0-63."
+        if not is_dali and not (1 <= start_address and last <= 512):
+            return f"DMX channels would run {start_address}-{last}; they must sit in 1-512."
+        new = dict(old, protocol=_ZONE_PROTOCOLS[protocol.lower()], linemask=1 << (line - 1),
+                   numLights=lights, numChannels=n, channelColours=cols,
+                   startAddress=start_address, multiLineAddressing=0,
+                   daligroupoffset=dali_group if is_dali and dali_group >= 0 else None)
+        msgs = [spektra_map.zone_to_message(new, _controller._next_id(), is_dali),
+                spektra_map.zone_save_message(_controller._next_id())]
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    warn = ""
+    if is_dali:
+        # The controller's Spektra engine sends a stored 255 as a DALI arc level, which
+        # is MASK ("no change"): that channel does not move. Live colour caps at 254.
+        try:
+            hits = [f"sequence {x['index'] + 1}" for x in await _controller.pull_sequences()
+                    if any(255 in (c.get("channelValues") or []) for c in x.get("colours") or [])]
+            hits += [f"theme {x['index'] + 1}" for x in await _controller.pull_themes()
+                     if any(255 in (c.get("channelValues") or []) for c in x.get("colours") or [])]
+        except Exception:  # noqa: BLE001 - the warning is best-effort
+            hits = []
+        if hits:
+            warn = (f"\nNOTE: {len(hits)} stored item(s) use level 255 ({', '.join(hits[:8])}"
+                    f"{', ...' if len(hits) > 8 else ''}). Played on a DALI zone, 255 is DALI "
+                    "'no change', so those channels stay where they are - re-save them with "
+                    "254 as the top value for DALI.")
+    where = (f"DALI groups {dali_group}-{dali_group + n - 1}" if is_dali and dali_group >= 0
+             else f"{'DALI addresses' if is_dali else 'DMX channels'} {start_address}-{last}")
+    body = (f"  Zone {zone + 1}: {lights} light(s) x {n} channel(s) "
+            f"({', '.join(channels.split(','))}), {protocol.upper()} line {line}, {where}")
+    token = _new_token(msgs, body)
+    return f"PREVIEW:\n{body}{warn}\nCall confirm(token=\"{token}\") to write and save."
+
+
+# --- DALI-2 commissioning and instance settings --------------------------------------
+
+@server.tool()
+async def preview_dali2_readdress(line: int, from_address: int, to_address: int) -> str:
+    """Give a DALI-2 control device (sensor, push button) a new short address. If
+    to_address is in use the two devices swap. Sensor slots and DALI inputs that
+    point at the old address are NOT changed - update them too (the preview lists
+    them). Returns a token; confirm moves it and checks it answers at the new address."""
+    from . import dali24, dali_units
+    try:
+        if not (0 <= from_address <= 63 and 0 <= to_address <= 63):
+            return "Addresses are 0-63."
+        n = await dali24.query(_controller, line, from_address, dali24.DEVICE, dali24.Q_INSTANCES)
+        if n is None:
+            return f"No DALI-2 device answers at line {line} address {from_address}."
+        other = await dali24.query(_controller, line, to_address, dali24.DEVICE, dali24.Q_INSTANCES)
+        meta = await _controller.read_system_counts()
+        users = []
+        for p in range(meta["profiles"]):
+            for s in await _controller.pull_sensors(p):
+                if s.get("line") == line and s.get("address") in (from_address, to_address):
+                    users.append(f"sensor slot {s['index'] + 1} (profile {p + 1}) uses "
+                                 f"address {s['address']}")
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    swap = other is not None
+    body = (f"  DALI-2 line {line}: address {from_address} -> {to_address}"
+            + (f" (swaps with the device already at {to_address})" if swap else ""))
+    if users:
+        body += "\n  Still pointing at the old address: " + "; ".join(sorted(set(users)))
+
+    async def run():
+        ack = await dali_units.remap(_controller, line, from_address, to_address, is24=True)
+        if not ack["ok"]:
+            return f"Refused: {ack}"
+        at_new = await dali24.query(_controller, line, to_address, dali24.DEVICE, dali24.Q_INSTANCES)
+        at_old = await dali24.query(_controller, line, from_address, dali24.DEVICE, dali24.Q_INSTANCES)
+        ok = at_new == n and (at_old is not None) == swap
+        return ((f"Done and checked: the device answers at {to_address}"
+                 + (f"; the other device is now at {from_address}." if swap else
+                    f"; nothing answers at {from_address}.")) if ok else
+                f"Check failed: at {to_address} -> {at_new}, at {from_address} -> {at_old}.")
+
+    token = _new_token([], body)
+    from .server import _pending
+    _pending[token]["runner"] = run
+    return (f"PREVIEW:\n{body}\nThis WRITES a DALI-2 short address. "
+            f"Call confirm(token=\"{token}\").")
+
+
+@server.tool()
+async def dali_find_duplicates(line: int, dali2: bool = True) -> str:
+    """Look for short addresses used by more than one device on a line (DALI-2
+    control devices by default; dali2=False for lights). Read-only, but it holds
+    the line for a few seconds."""
+    try:
+        client = _controller._require()
+        old = getattr(client, "_timeout", None)
+        client._timeout = max(old or 0, 30.0)
+        try:
+            r = await ops.request(_controller, dali_identify_duplicates=pb.DALIIdentifyDuplicatesMessage(
+                line_mask=1 << (line - 1), is24Bit=dali2))
+        finally:
+            if old is not None:
+                client._timeout = old
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if r.WhichOneof("payload") != "dali_identify_duplicates":
+        from .v2 import ack_summary
+        return f"Refused: {ack_summary(r)}"
+    dups = list(r.dali_identify_duplicates.possible_duplicates)
+    if not dups:
+        return f"No duplicate {'DALI-2 device' if dali2 else 'DALI gear'} addresses on line {line}."
+    return (f"Possible duplicates on line {line}: "
+            + ", ".join(f"address {d.address}" for d in dups)
+            + ". Re-address one of each pair (commissioning) to separate them.")
+
+
+@server.tool()
+async def preview_dali2_instance(line: int, address: int, instance: int,
+                                 enabled: str = "", report_seconds: int = -1,
+                                 hysteresis_percent: int = -1, deadtime_ms: int = -1,
+                                 hold_seconds: int = -1) -> str:
+    """Configure one instance of a DALI-2 control device (dali2_device lists them):
+    enabled ('on'/'off'), report_seconds (how often it reports while nothing
+    changes; light/occupancy), hysteresis_percent (light: change needed before it
+    reports), deadtime_ms (minimum gap between reports, 50 ms steps), hold_seconds
+    (occupancy: hold time, 10 s steps). Only what you give changes. Returns a token."""
+    from . import dali24
+    try:
+        t = await dali24.query(_controller, line, address, instance, dali24.Q_INSTANCE_TYPE)
+        if t is None:
+            return f"No instance {instance} at line {line} address {address}."
+        motion, light = t == 3, t == 4
+        steps = []
+        if enabled:
+            steps.append(("enable" if enabled.lower() in ("on", "true", "1") else "disable",
+                          dali24.C_ENABLE_INSTANCE if enabled.lower() in ("on", "true", "1")
+                          else dali24.C_DISABLE_INSTANCE, None))
+        if report_seconds >= 0:
+            if not (motion or light) or report_seconds > 255:
+                return "report_seconds (0-255) is for occupancy and light instances."
+            steps.append((f"report every {report_seconds} s",
+                          dali24.C_LIGHT_SET_REPORT_TIMER if light else dali24.C_MOTION_SET_REPORT_TIMER,
+                          report_seconds))
+        if hysteresis_percent >= 0:
+            if not light or hysteresis_percent > 25:
+                return "hysteresis_percent (0-25) is for light instances."
+            steps.append((f"hysteresis {hysteresis_percent}%", dali24.C_LIGHT_SET_HYSTERESIS,
+                          hysteresis_percent))
+        if deadtime_ms >= 0:
+            v = round(deadtime_ms / 50)
+            if not (motion or light) or v > 255:
+                return "deadtime_ms (0-12750) is for occupancy and light instances."
+            steps.append((f"dead time {v * 50} ms",
+                          dali24.C_LIGHT_SET_DEADTIME_TIMER if light else dali24.C_MOTION_SET_DEADTIME_TIMER,
+                          v))
+        if hold_seconds >= 0:
+            v = round(hold_seconds / 10)
+            if not motion or v > 255:
+                return "hold_seconds (0-2550) is for occupancy instances."
+            steps.append((f"hold {v * 10} s", dali24.C_MOTION_SET_HOLD_TIMER, v))
+        if not steps:
+            return "Nothing to change."
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    body = (f"  DALI-2 line {line} address {address} instance {instance} "
+            f"({dali24.INSTANCE_TYPES.get(t, t)}): " + ", ".join(s[0] for s in steps))
+
+    async def run():
+        acks = []
+        for _label, op, val in steps:
+            acks += await dali24.command(_controller, line, address, instance, op, dtr0=val)
+        bad = [a for a in acks if not a.get("ok")]
+        en = await dali24.query(_controller, line, address, instance, dali24.Q_INSTANCE_ENABLED)
+        return ((f"Refused: {bad[0]}. " if bad else "Done. ")
+                + f"Instance is now {'enabled' if en is not None else 'disabled'}.")
+
+    token = _new_token([], body)
+    from .server import _pending
+    _pending[token]["runner"] = run
+    return f"PREVIEW:\n{body}\nCall confirm(token=\"{token}\")."
