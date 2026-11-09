@@ -21,7 +21,10 @@ class Exporter:
     def __init__(self, collectors: list[ControllerCollector], min_poll_interval: float = 10.0):
         self.collectors = collectors
         self.min_poll_interval = min_poll_interval
-        self._last_poll = 0.0
+        # None = never polled. (Not 0.0: time.monotonic() counts from boot on Linux,
+        # so shortly after boot "now - 0" is under the interval and the first scrape
+        # would serve empty metrics.)
+        self._last_poll: float | None = None
         self._lock: asyncio.Lock | None = None   # created in the running loop (py3.9)
         self.scrapes = 0
 
@@ -35,7 +38,8 @@ class Exporter:
         if self._lock is None:
             self._lock = asyncio.Lock()
         async with self._lock:
-            if time.monotonic() - self._last_poll >= self.min_poll_interval:
+            if (self._last_poll is None
+                    or time.monotonic() - self._last_poll >= self.min_poll_interval):
                 await asyncio.gather(*(c.poll() for c in self.collectors))
                 self._last_poll = time.monotonic()
         self.scrapes += 1

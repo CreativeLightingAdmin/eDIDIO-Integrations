@@ -140,3 +140,13 @@ def test_http_scrape_and_poll_caching():
     assert "edidio_exporter_scrapes_total 2" in second
     assert missing.startswith("HTTP/1.1 404")
     assert len(polls) == 1                      # second scrape used the cached poll
+
+
+def test_first_scrape_polls_even_just_after_boot(monkeypatch):
+    """time.monotonic() counts from boot on Linux: seconds after boot it is below
+    min_poll_interval, and the first scrape must still poll."""
+    from edidio_prometheus import server as srv
+    monkeypatch.setattr(srv.time, "monotonic", lambda: 5.0)
+    exporter = Exporter([collector()], min_poll_interval=60)
+    text = asyncio.run(exporter.metrics())
+    assert 'edidio_up{controller="main"} 1' in text
