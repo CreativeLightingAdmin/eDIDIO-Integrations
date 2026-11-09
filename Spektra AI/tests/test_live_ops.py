@@ -139,3 +139,11 @@ def test_check_target_refuses_wrong_device_and_model_change():
     with pytest.raises(ValueError, match="Model changed"):
         asyncio.run(_IdentCtrl(["40:D8:55:00:00:01"], hw="4P-1").check_target(
             _proj("40:D8:55:00:00:01")))
+
+
+def test_sd_helpers():
+    # FAT date 23813 / time 29682 -> 2026-07-05 14:31:36 style decoding
+    assert ops.fat_datetime(((2026 - 1980) << 9) | (9 << 5) | 7,
+                            (9 << 11) | (48 << 5) | 16) == "2026-09-07 09:48:32"
+    assert ops.fat_datetime(0, 0) == ""
+    assert ops._sd_path("/logs/sys/") == "logs/sys"

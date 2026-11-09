@@ -276,6 +276,38 @@ async def sensor_states() -> str:
     return "\n".join(out)
 
 
+@server.tool()
+async def dali_levels(line: int, addresses: str = "") -> str:
+    """What every DALI fitting on a line is doing NOW: actual arc level (0-254), on/off,
+    fading, and faults (lamp failure, gear failure, limit error). Uses the controller's
+    status cache to find gear, then queries each address; pass addresses ('0-3,9') to
+    query specific ones. Read-only."""
+    try:
+        _controller._require()
+        from .server import _parse_addresses
+        addrs = _parse_addresses(addresses) if addresses.strip() else None
+        rows = await ops.dali_levels(_controller, line, addrs)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if not rows:
+        return (f"No gear in line {line}'s status cache. Try dali_scan, or pass "
+                "addresses explicitly.")
+    out = [f"DALI line {line}: {sum(r['present'] for r in rows)} fitting(s) answered"]
+    for r in rows:
+        if not r["present"]:
+            out.append(f"  address {r['address']}: NO REPLY (cached status "
+                       f"0x{r['cached_status']:02X}) - missing, unpowered or faulty")
+            continue
+        state = ("fading" if r["fading"] else "on" if r["on"] else "off")
+        bits = [f"level {r['level']}" if r["level"] is not None else "level ?", state]
+        if r["faults"]:
+            bits.append("FAULT: " + ", ".join(r["faults"]))
+        if r["power_cycle_seen"]:
+            bits.append("power cycled since last command")
+        out.append(f"  address {r['address']}: " + ", ".join(bits))
+    return "\n".join(out)
+
+
 # --- transient actions -----------------------------------------------------------
 
 @server.tool()
@@ -737,3 +769,138 @@ async def preview_logic(index: int, source: str, compare: str, value: int,
     body = _describe_logic(new)
     token = _new_token(msgs, body)
     return f"PREVIEW:\n{body}\nCall confirm(token=\"{token}\") to write and save."
+
+
+# --- SD card ---------------------------------------------------------------------------
+
+def _human(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024 or unit == "GB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024
+    return str(n)
+
+
+def _newest(entries: list) -> list:
+    return sorted(entries, key=lambda e: (e["modified"], e["name"]), reverse=True)
+
+
+@server.tool()
+async def sd_overview() -> str:
+    """The controller's SD card: free/total space, and each log category's folder,
+    whether it is recording, its size budget and how much it holds. Read-only."""
+    try:
+        _controller._require()
+        space = await ops.sd_space(_controller)
+        pol = await ops.sd_policy(_controller)
+    except ops.Unsupported as err:
+        return str(err)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if space["capacity_known"]:
+        head = (f"SD card: {_human(space['free_bytes'])} free of "
+                f"{_human(space['total_bytes'])}.")
+    else:
+        head = ("SD card: mounted, but the controller reports 0 of 0 bytes - its capacity "
+                "was not measured (a known firmware issue), so free space is UNKNOWN, not full.")
+    rows = [head, "Log folders:"]
+    used = 0
+    for e in pol.get("entries", []):
+        used += e["current_disk_bytes"]
+        on = {True: "recording", False: "off", None: "?"}[e["enabled"]]
+        rows.append(f"  {e['directory']:<13} {e['prefix']}_nnnn.{e['extension']}  {on:<9} "
+                    f"{_human(e['current_disk_bytes']):>9}  (budget {e['budget_permille'] / 10:.0f}%,"
+                    f" files up to {e['max_file_size_kb']} KB)")
+    rows.append(f"Logs total: {_human(used)}. Text logs (.LOG) can be read with sd_read_file; "
+                ".BIN logs are binary (download them with sd_download).")
+    return "\n".join(rows)
+
+
+@server.tool()
+async def sd_list_files(path: str = "logs", newest: int = 20, match: str = "",
+                        refresh: bool = False) -> str:
+    """List an SD card folder (e.g. 'logs', 'logs/trig', 'logs/sys'), newest first by
+    file date. `newest` = how many to show (0 = all); `match` filters names
+    (case-insensitive). A big log folder takes ~2 s per 100 files to list; the
+    listing is then reused for 2 minutes (refresh=True re-reads it). File dates come
+    from the controller clock, so a clock that was once wrong gives odd dates - the
+    file number (TRG_0963) is the order the controller wrote them in. Read-only."""
+    try:
+        _controller._require()
+        res = await ops.sd_list(_controller, path, fresh=refresh)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    ents = [e for e in res["entries"] if match.lower() in e["name"].lower()]
+    shown = _newest(ents)[:newest] if newest else _newest(ents)
+    rows = [f"{res['path'] or '/'}: {len(ents)} entr{'y' if len(ents) == 1 else 'ies'}"
+            + (f", newest {len(shown)}:" if newest and len(ents) > len(shown) else ":")]
+    for e in shown:
+        kind = "<dir>" if e["is_dir"] else _human(e["size"])
+        rows.append(f"  {e['modified'] or '(no date)':<19}  {kind:>9}  {e['name']}")
+    return "\n".join(rows)
+
+
+@server.tool()
+async def sd_read_file(path: str, tail_kb: int = 8, offset: int = -1, length: int = 0) -> str:
+    """Read a text file from the SD card, e.g. 'logs/trig/TRG_0005.LOG'. By default the
+    last `tail_kb` KB (the newest lines); or give `offset` (and `length`) in bytes.
+    Read-only. For binary .BIN files use sd_download."""
+    try:
+        _controller._require()
+        if offset < 0:
+            head = await ops.sd_read(_controller, path, offset=0, length=1)
+            size = head["file_size"]
+            start = max(0, size - max(1, tail_kb) * 1024)
+            res = await ops.sd_read(_controller, path, offset=start)
+        else:
+            res = await ops.sd_read(_controller, path, offset=offset, length=length)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    data = res["data"]
+    if b"\x00" in data[:256]:
+        return (f"{res['path']} looks binary ({res['file_size']} bytes). Use sd_download "
+                "to save it.")
+    text = data.decode("utf-8", errors="replace")
+    if res["offset"] > 0 and "\n" in text:
+        text = text.split("\n", 1)[1]           # drop the partial first line
+    return (f"{res['path']} ({_human(res['file_size'])}), bytes {res['offset']}-"
+            f"{res['offset'] + len(data)}:\n{text}")
+
+
+@server.tool()
+async def sd_download(path: str, out_path: str) -> str:
+    """Copy a file from the controller's SD card to this computer (out_path). Works
+    for binary logs (.BIN) and crash records too. Read-only on the controller."""
+    try:
+        _controller._require()
+        res = await ops.sd_read(_controller, path)
+        with open(out_path, "wb") as fh:
+            fh.write(res["data"])
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return f"Saved {res['path']} ({_human(len(res['data']))}) to {out_path}."
+
+
+@server.tool()
+async def sd_search(folder: str, text: str, files: int = 5, max_lines: int = 60) -> str:
+    """Search the newest `files` log files in an SD folder (e.g. 'logs/trig',
+    'logs/sys', 'logs/sensor', 'logs/network') for lines containing `text`
+    (case-insensitive). Good for 'when did input 3 fire?' or 'any errors today?'
+    (text 'ERROR' / 'WARN'). Read-only."""
+    try:
+        _controller._require()
+        listing = await ops.sd_list(_controller, folder)
+        logs = [e for e in _newest(listing["entries"]) if not e["is_dir"]
+                and e["name"].upper().endswith(".LOG")][:max(1, files)]
+        hits = []
+        for e in logs:
+            res = await ops.sd_read(_controller, f"{listing['path']}/{e['name']}")
+            for line in res["data"].decode("utf-8", errors="replace").splitlines():
+                if text.lower() in line.lower():
+                    hits.append(f"  {e['name']}: {line}")
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    head = (f"'{text}' in the newest {len(logs)} file(s) of {listing['path']}: "
+            f"{len(hits)} line(s)")
+    return head + ("\n" + "\n".join(hits[-max_lines:]) if hits else ".") + (
+        f"\n(showing the last {max_lines})" if len(hits) > max_lines else "")

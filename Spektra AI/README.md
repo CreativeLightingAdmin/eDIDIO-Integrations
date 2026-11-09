@@ -29,6 +29,8 @@ and troubleshoot — in plain language:
 **Author with a safety net** — every create is **preview → confirm**
 - `preview_sequence` / `preview_theme` / `preview_schedule` / `preview_calendar`
   return a human preview **and a token**; nothing is written until `confirm(token)`.
+  A schedule can run any command (start a list, change profile, recall a DALI
+  scene, ...) at a time or sunrise/sunset, with an optional end command.
 
 **`.spektra` project files** — the SpektraPlus project format, offline and live
 - Offline: `summarize_spektra`, `validate_spektra`, `diff_spektra`,
@@ -75,7 +77,8 @@ and troubleshoot — in plain language:
 - Offline: `parse_event_log`, `diagnose_stuck_on` (exported event-log files).
 
 **Live state and actions** — `live_state` (profile, closed inputs, running lists,
-alarm, sensors, burn-ins), `sensor_states`, `run_command` (run any trigger now, as an
+alarm, sensors, burn-ins), `sensor_states`, `dali_levels` (actual level, on/off and
+faults of every fitting on a DALI line), `run_command` (run any trigger now, as an
 input or list would: DALI arc/command/scene, lists, outputs, Spektra, DMX, profile,
 logic, ...), `change_profile`, `command_reference` (the action vocabulary).
 
@@ -86,6 +89,11 @@ no file needed
   a PE cell or key switch, per profile) / `preview_output` (latching or pulse).
 - `list_logic` / `preview_logic` — if DALI level / input / list running / occupancy /
   DMX present / weekday / month / alarm / DALI error, then A else B.
+
+**SD card** (models with a card) — `sd_overview` (space, and each log folder's
+state and size), `sd_list_files`, `sd_read_file`, `sd_download` (binary logs too),
+`sd_search` (find lines in the newest log files, e.g. when an input fired, or
+`ERROR`).
 
 **Settings, names, Wi-Fi** — `get_device_settings` / `preview_device_settings` (name,
 project, location, UTC offset, daylight saving, DALI polling and timing),
@@ -144,7 +152,7 @@ Restart Claude Desktop; the Spektra AI tools + the capability guide appear.
 ## Testing
 
 ```bash
-python -m pytest -q     # 192 tests, no controller required
+python -m pytest -q     # 196 tests, no controller required
 ```
 
 Everything is verified with **no controller** (stub clients + real-file fixtures).
@@ -186,7 +194,7 @@ Spektra AI/
 │   └── templates/           # bundled controller template (device skeleton)
 ├── tools/build_alma.py      # example: generate a project from a functionality statement
 ├── CAPABILITY_GUIDE.md      # generated snapshot of the guide
-└── tests/                   # 192 tests (stub clients + real-file fixtures)
+└── tests/                   # 196 tests (stub clients + real-file fixtures)
 ```
 
 ### Fidelity notes (mirroring SpektraPlus)

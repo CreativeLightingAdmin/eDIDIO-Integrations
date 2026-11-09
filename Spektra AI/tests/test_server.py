@@ -161,7 +161,7 @@ def test_preview_scheduled_inline_sequence_two_messages():
                      "colours": [[255, 0, 0], [0, 255, 0]], "title": "RG"},
     }))
     token = out.split('token="')[1].split('"')[0]
-    assert srv._pending[token]["messages"].__len__() == 2  # save seq + alarm
+    assert len(srv._pending[token]["messages"]) == 3  # seq + alarm + DEVICE_SAVE
     run(srv.confirm(token))
 
 

@@ -162,3 +162,39 @@ def test_schedule_needs_time_or_astro():
 def test_schedule_bad_time():
     with pytest.raises(SpecError):
         compile_schedule({"index": 0, "time": "25:99", "trigger": {"type": "start_sequence", "target_index": 1}})
+
+
+def _alarm(frames):
+    import edidio_control_py.eDS10_ProtocolBuffer_pb2 as pb
+    m = pb.EdidioMessage()
+    m.ParseFromString(frames[-1][3:])
+    return m.alarm
+
+
+def test_schedule_runs_any_command_and_disables_missing_end():
+    frames, preview = compile_schedule({"index": 2, "time": "07:00", "repeat": "weekdays",
+                                        "command": {"do": "profile", "profile": 1}})
+    a = _alarm(frames)
+    assert a.start_trigger.type == 30 and a.start_trigger.target_index == 1
+    assert a.end_trigger.type == 254 and (a.end_time.time >> 16) == 25   # end disabled
+    assert "Change profile Profile 2 (index 1)" in preview
+
+
+def test_schedule_end_command():
+    frames, preview = compile_schedule({
+        "index": 0, "time": "18:00", "end_time": "23:00",
+        "command": {"do": "list_start", "list": 3},
+        "end_command": {"do": "dali_off", "line": 1, "broadcast": True}})
+    a = _alarm(frames)
+    assert a.start_trigger.type == 9 and a.start_trigger.target_index == 3
+    assert a.end_trigger.type == 1 and a.end_trigger.target_index == 80
+    assert "at 23:00: DALI OFF" in preview
+
+
+def test_sequence_title_kept_to_23_bytes():
+    frames, _ = compile_sequence({"index": 1, "title": "Asthma and Allergy Awareness",
+                                  "type": "blend", "colours": [[255, 0, 0]]})
+    import edidio_control_py.eDS10_ProtocolBuffer_pb2 as pb
+    m = pb.EdidioMessage()
+    m.ParseFromString(frames[0][3:])
+    assert m.spektra_sequence.title == "Asthma and Allergy Awar"

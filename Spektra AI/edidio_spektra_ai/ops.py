@@ -308,6 +308,41 @@ async def _input_count(ctrl) -> int:
     return 0
 
 
+async def dali_status_cache(ctrl, line: int) -> list:
+    """The controller's cached QUERY STATUS byte per short address (line 1-based).
+    0 = nothing cached (no gear, or gear that has never reported a flag)."""
+    r = await request(ctrl, diag_message=pb.DiagnosticMessage(
+        type=pb.DiagnosticMessageType.DALI_STATUS_CACHE, line=line))
+    if r.WhichOneof("payload") != "level_cache_response":
+        raise Unsupported(f"DALI status cache: {v2.ack_summary(r)['code']}")
+    return list(r.level_cache_response.levels)[:64]
+
+
+async def dali_levels(ctrl, line: int, addresses=None) -> list:
+    """Actual level + status of DALI gear on a line. Gear comes from the controller's
+    status cache (or ``addresses``); each is then queried, because the controller's
+    level cache is not maintained (1.6.3 writes it only on OFF)."""
+    from . import dali
+    cache = await dali_status_cache(ctrl, line)
+    targets = list(addresses) if addresses else [a for a, s in enumerate(cache) if s]
+    out = []
+    for a in targets:
+        st = await ctrl.dali_query(line, a, pb.DALIQueryType.DALI_QUERY_STATUS)
+        if not st.get("responded"):
+            out.append({"address": a, "present": False, "cached_status": cache[a]})
+            continue
+        lv = await ctrl.dali_query(line, a, pb.DALIQueryType.DALI_QUERY_ACTUAL_LEVEL)
+        flags = dali.decode_status(st["data"])
+        out.append({"address": a, "present": True,
+                    "level": lv["data"] if lv.get("responded") else None,
+                    "faults": [k for k in ("gear_failure", "lamp_failure", "limit_error")
+                               if flags[k]],
+                    "on": flags["lamp_on"], "fading": flags["fade_running"],
+                    "power_cycle_seen": flags["power_cycle_seen"],
+                    "reset_state": flags["reset_state"]})
+    return out
+
+
 async def config_status(ctrl) -> dict:
     """Running lists, the active alarm, per-sensor light states, burn-in states."""
     return await admin_get(ctrl, "CONFIG_STATUS")
@@ -489,3 +524,113 @@ __all__ = ["admin_get", "admin_set", "health", "format_health", "read_log", "set
            "sensor_states", "run_trigger", "change_profile", "set_dali_polling",
            "line_diagnostics", "settings", "setting_message", "wifi", "wifi_settings_message",
            "aliases", "aliases_message", "commands"]
+
+
+# --- SD card (6/9-pole with a card) ---------------------------------------------------
+
+SD_CHUNK = 512           # the device returns at most 512 bytes per read
+SD_PAGE = 16             # and at most 16 directory entries per page
+
+
+def fat_datetime(date: int, time: int) -> str:
+    """FAT date/time -> 'YYYY-MM-DD HH:MM:SS' ('' when unset)."""
+    if not date:
+        return ""
+    y, mo, d = 1980 + (date >> 9), (date >> 5) & 0x0F, date & 0x1F
+    h, mi, s = time >> 11, (time >> 5) & 0x3F, (time & 0x1F) * 2
+    return f"{y:04d}-{mo:02d}-{d:02d} {h:02d}:{mi:02d}:{s:02d}"
+
+
+def _sd_path(path: str) -> str:
+    return str(path or "").strip().strip("/")   # the card takes 'logs/sys', not '/logs/sys'
+
+
+def _sd_status(code: int) -> str:
+    return pb.SdStatusCode.Name(code)
+
+
+async def sd_space(ctrl) -> dict:
+    r = await request(ctrl, sd_file_control=pb.SdFileControlMessage(
+        command=pb.SdFileControlType.SD_GET_SPACE))
+    if r.WhichOneof("payload") != "sd_file_control":
+        raise Unsupported(f"no SD card support ({v2.ack_summary(r)['code']})")
+    d = r.sd_file_control
+    out = {"status": _sd_status(d.status), "free_bytes": d.free_bytes,
+           "total_bytes": d.total_bytes}
+    # 0 of 0 with SD_OK means the capacity was never measured (the protocol's
+    # SD_CAPACITY_UNKNOWN), not a full card.
+    out["capacity_known"] = d.status == pb.SdStatusCode.SD_OK and d.total_bytes > 0
+    return out
+
+
+async def sd_policy(ctrl) -> dict:
+    """Per-category log folders, size budgets and bytes on the card."""
+    r = await request(ctrl, sd_log_policy=pb.SdLogPolicyMessage())
+    if r.WhichOneof("payload") != "sd_log_policy":
+        raise Unsupported(f"no SD log policy ({v2.ack_summary(r)['code']})")
+    pol = v2.to_dict(r.sd_log_policy)
+    r = await request(ctrl, sd_log_config=pb.SdLogConfigMessage(is_write=False))
+    mask = r.sd_log_config.current_mask if r.WhichOneof("payload") == "sd_log_config" else None
+    for e in pol.get("entries", []):
+        e["enabled"] = None if mask is None else bool(mask & (1 << e.get("category", 0)))
+        e["current_disk_bytes"] = int(e.get("current_disk_bytes", 0))
+    return pol
+
+
+_SD_LIST_CACHE: dict = {}      # (host, path) -> (time, result); log folders are large
+SD_LIST_TTL = 120.0
+
+
+async def sd_list(ctrl, path: str, *, offset: int = 0, limit: int = 0,
+                  fresh: bool = False) -> dict:
+    """Directory entries (name, size, modified, is_dir). limit 0 = everything. A full
+    listing is cached for SD_LIST_TTL s (a 2000-file log folder takes ~35 s to list)."""
+    import time
+    path = _sd_path(path)
+    key = (getattr(ctrl, "host", None), path)
+    if not offset and not limit and not fresh:
+        hit = _SD_LIST_CACHE.get(key)
+        if hit and time.monotonic() - hit[0] < SD_LIST_TTL:
+            return hit[1]
+    out, off = [], offset
+    while True:
+        r = await request(ctrl, sd_dir_list=pb.SdDirListMessage(path=path, offset=off,
+                                                                max_entries=SD_PAGE))
+        if r.WhichOneof("payload") != "sd_dir_list":
+            raise Unsupported(f"no SD card support ({v2.ack_summary(r)['code']})")
+        d = r.sd_dir_list
+        if d.status != pb.SdStatusCode.SD_OK:
+            raise RuntimeError(f"SD list '{path}': {_sd_status(d.status)}")
+        for e in d.entries:
+            out.append({"name": e.name, "size": e.size, "is_dir": e.is_directory,
+                        "modified": fat_datetime(e.date, e.time)})
+        off += len(d.entries)
+        if not d.has_more or not d.entries or (limit and len(out) >= limit):
+            break
+    result = {"path": path, "entries": out[:limit] if limit else out}
+    if not offset and not limit:
+        _SD_LIST_CACHE[key] = (time.monotonic(), result)
+    return result
+
+
+async def sd_read(ctrl, path: str, *, offset: int = 0, length: int = 0) -> dict:
+    """Read bytes from a file (length 0 = to the end). Returns {data, file_size}."""
+    path = _sd_path(path)
+    buf, pos, size = bytearray(), offset, None
+    while True:
+        want = SD_CHUNK if not length else min(SD_CHUNK, offset + length - pos)
+        if want <= 0:
+            break
+        r = await request(ctrl, sd_file_read=pb.SdFileReadMessage(path=path, offset=pos,
+                                                                  length=want))
+        if r.WhichOneof("payload") != "sd_file_read":
+            raise Unsupported(f"no SD card support ({v2.ack_summary(r)['code']})")
+        d = r.sd_file_read
+        if d.status != pb.SdStatusCode.SD_OK:
+            raise RuntimeError(f"SD read '{path}' @{pos}: {_sd_status(d.status)}")
+        size = d.file_size
+        buf += d.data[:d.bytes_read]
+        pos += d.bytes_read
+        if not d.bytes_read or pos >= size:
+            break
+    return {"path": path, "offset": offset, "file_size": size or 0, "data": bytes(buf)}

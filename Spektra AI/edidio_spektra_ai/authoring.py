@@ -23,7 +23,6 @@ from edidio_control_py import (
     SPEKTRA_MIN_MS_PER_STEP,
     SPEKTRA_SEQUENCE_MAX_INDEX,
     SPEKTRA_THEME_MAX_INDEX,
-    SPEKTRA_TITLE_MAX_LEN,
     AlarmAstroType,
     AlarmRepeatType,
     EdidioClient,
@@ -31,6 +30,9 @@ from edidio_control_py import (
     SpektraTransitionType,
     TriggerType,
 )
+
+from . import commands
+from .sync import device_sequence_title, device_theme_title
 
 # Name -> value maps so the LLM can pass friendly strings.
 SEQUENCE_TYPE_NAMES = {
@@ -108,7 +110,7 @@ def compile_sequence(spec: dict, *, message_id: int = 1):
     seq_type = _enum(SEQUENCE_TYPE_NAMES, spec.get("type", "rotate"), "sequence type")
     colours = _colours(spec.get("colours"))
     transition = _enum(TRANSITION_NAMES, spec.get("transition", "blend"), "transition")
-    title = str(spec.get("title", ""))[:SPEKTRA_TITLE_MAX_LEN]
+    title = device_sequence_title(str(spec.get("title", "")))   # kept to 23 bytes
 
     step_ms = int(spec.get("time_per_step_ms", spec.get("step_ms", 500)))
     if step_ms and step_ms < SPEKTRA_MIN_MS_PER_STEP:
@@ -153,7 +155,7 @@ def compile_theme(spec: dict, *, message_id: int = 1):
     if not (0 <= index <= SPEKTRA_THEME_MAX_INDEX):
         raise SpecError(f"theme index {index} out of range 0-{SPEKTRA_THEME_MAX_INDEX}")
     colours = _colours(spec.get("colours"))
-    title = str(spec.get("title", ""))[:SPEKTRA_TITLE_MAX_LEN]
+    title = device_theme_title(str(spec.get("title", "")))      # kept to 27 bytes
     frame = EdidioClient.create_spektra_theme_message(
         message_id, index=index, colours=colours, title=title
     )
@@ -192,8 +194,10 @@ def _month_bitmask(months):
 
 def compile_schedule(spec: dict, *, message_id: int = 1):
     """A schedule spec. Required: `index`, and either `time` ("HH:MM") or an
-    `astro` ("sunrise"/"sunset"). The action is `trigger` (type/zone/target_index)
-    OR an inline `sequence`/`theme` to author-and-target in one go."""
+    `astro` ("sunrise"/"sunset"). The action is `command` (any command JSON - see
+    commands.py: start a list, change profile, DALI scene, ...), `trigger`
+    (type/zone/target_index), OR an inline `sequence`/`theme` to author-and-target
+    in one go. `end_time` + `end_command` / `end_trigger` add an end event."""
     index = int(spec.get("index", 0))
     if not (0 <= index <= ALARM_MAX_INDEX):
         raise SpecError(f"schedule index {index} out of range 0-{ALARM_MAX_INDEX}")
@@ -203,7 +207,12 @@ def compile_schedule(spec: dict, *, message_id: int = 1):
 
     # Optional inline sequence/theme to author first, then target it.
     trigger = dict(spec.get("trigger") or {})
-    if "sequence" in spec:
+    described = None
+    if "command" in spec:
+        cmd = _build_command(spec["command"])
+        trigger = _cmd_to_trigger(cmd)
+        described = commands.describe(cmd)
+    elif "sequence" in spec:
         seq_frames, seq_preview = compile_sequence(spec["sequence"], message_id=message_id)
         messages.extend(seq_frames)
         preview_bits.append(seq_preview)
@@ -247,9 +256,21 @@ def compile_schedule(spec: dict, *, message_id: int = 1):
     # Optional end time + stop action (e.g. run 17:00 - 23:00). If an end time is
     # given without an explicit end_trigger, default to stopping playback on the
     # same zone.
-    end_time = 0
+    # No end event = NO_COMMAND at hour 25 (an hour past 24 disables the end event;
+    # SpektraPlus writes the same). Without this the engine default (type 0, 00:00)
+    # would be a live end event at midnight.
+    end_time = EdidioClient.pack_time(25, 0, 0)
     end_trigger = dict(spec.get("end_trigger") or {})
+    end_described = None
+    if "end_command" in spec:
+        ecmd = _build_command(spec["end_command"])
+        end_trigger = _cmd_to_trigger(ecmd)
+        end_described = commands.describe(ecmd)
     end_str = spec.get("end_time")
+    if end_described and not end_str:
+        raise SpecError("end_command needs an end_time")
+    if not end_str:
+        end_trigger = {"type": commands.NO_COMMAND}
     if end_str:
         eh, em = _parse_hhmm(end_str)
         end_time = EdidioClient.pack_time(eh, em, 0)
@@ -299,12 +320,28 @@ def compile_schedule(spec: dict, *, message_id: int = 1):
                                     if off is not None else "")
     repeat_name = next((k for k, v in REPEAT_NAMES.items() if v == repeat), repeat)
     window = f" until {end_str}" if end_str else ""
+    action = described or f"{_trigger_desc(trigger)} on zone {trigger['zone']}"
+    end_text = ""
+    if end_str:
+        end_text = f"; at {end_str}: {end_described or 'stop playback'}"
     preview_bits.append(
-        f"**Schedule {index}**: at {when}{window}, repeat {repeat_name}, "
-        f"run {_trigger_desc(trigger)} on zone {trigger['zone']}"
-        + (f" then stop at {end_str}" if end_str else "") + "."
+        f"**Schedule {index}** (Schedule {index + 1} in the app): at {when}{window}, "
+        f"repeat {repeat_name}, run {action}{end_text}."
     )
     return messages, "\n".join(preview_bits)
+
+
+def _build_command(spec) -> dict:
+    try:
+        return commands.build(spec)
+    except (commands.CommandError, ValueError) as err:
+        raise SpecError(str(err)) from None
+
+
+def _cmd_to_trigger(cmd: dict) -> dict:
+    """commands.py trigger dict -> the engine's TriggerMessage dict keys."""
+    return {"type": cmd["commandtype"], "zone": cmd["zone"], "line_mask": cmd["linemask"],
+            "target_index": cmd["target"], "value": cmd["value"], "query_index": cmd["query"]}
 
 
 def _resolve_trigger_type(trigger: dict) -> None:

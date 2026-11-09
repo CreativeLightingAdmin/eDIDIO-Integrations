@@ -281,6 +281,9 @@ def _preview(compile_fn, spec):
         messages, preview = compile_fn(spec)
     except SpecError as err:
         return f"Invalid spec: {err}"
+    # End with DEVICE_SAVE, as every other write does (acked once the save is done).
+    from .spektra_map import device_save_message
+    messages = list(messages) + [device_save_message(_controller._next_id())]
     token = _new_token(messages, preview)
     return (f"PREVIEW (nothing written yet):\n{preview}\n\n"
             f"Call confirm(token=\"{token}\") to write this to the controller.")
@@ -304,10 +307,14 @@ async def preview_theme(spec: dict) -> str:
 async def preview_schedule(spec: dict) -> str:
     """Preview a schedule. spec: {index, time "HH:MM" OR astro 'sunset'/'sunrise'
     with optional offset "H:MM" (negative = before, e.g. "-0:30"), repeat
-    'daily'/'weekdays'/..., optional months [1-12], and either trigger
-    {type,zone,target_index} or an inline 'sequence'/'theme'. trigger type can be
-    'start_calendar' (Start Calendar Event), 'start_sequence', 'theme',
-    'stop_sequence'. Returns a preview + confirm token."""
+    'daily'/'weekdays'/..., optional months [1-12], and the action: `command` (ANY
+    command JSON, e.g. {"do":"list_start","list":0} or {"do":"profile","profile":1}
+    or {"do":"dali_scene","line":1,"broadcast":true,"scene":2} - see
+    command_reference), or trigger {type,zone,target_index}, or an inline
+    'sequence'/'theme'. trigger type can be 'start_calendar' (Start Calendar Event),
+    'start_sequence', 'theme', 'stop_sequence'. Optional end_time "HH:MM" with
+    end_command (or end_trigger; default: stop playback). index is 0-based
+    (Schedule 1 = 0). Returns a preview + confirm token."""
     return _preview(compile_schedule, spec)
 
 
