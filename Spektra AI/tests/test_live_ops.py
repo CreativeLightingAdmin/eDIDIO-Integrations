@@ -206,3 +206,12 @@ def test_dali_channel_order_plan():
     assert dali_units.plan_order(dev, 0) == [(2, 0)]          # one swap fixes it
     assert dali_units.plan_order(dev, 10) == [(2, 10), (1, 11), (0, 12), (3, 13)]
     assert "NOT in channel order" in dali_units.describe([dev], 1)
+
+
+def test_slot_snapshot_compare():
+    from edidio_spektra_ai.tools_live import compare_snapshots
+    old = {"sequences": {"0": 1, "1": 2, "5": 9}, "themes": {"0": 7}}
+    new = {"sequences": {"0": 1, "1": 3, "6": 4}, "themes": {"0": 7}}
+    d = compare_snapshots(old, new)
+    assert d["sequences"] == {"added": [6], "removed": [5], "changed": [1]}
+    assert d["themes"] == {"added": [], "removed": [], "changed": []}

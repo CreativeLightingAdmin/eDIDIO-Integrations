@@ -1535,13 +1535,16 @@ async def notify_when(event: str, index: int = -1, channel: str = "log", label: 
 
 @server.tool()
 async def set_zone_colour(zone: int, colour: str, fade_ms: int = 50,
-                          stop_playback: bool = True) -> str:
+                          stop_playback: bool = True, dali_group: int = -1) -> str:
     """Set a Spektra zone (0-based; Zone 1 = 0) to a colour RIGHT NOW - for trying
     colours while designing sequences and themes. colour: '#RRGGBB' (mapped onto the
     zone's red/green/blue channels) or one level per channel, '255,0,0,128' (0-255;
     DALI channels cap at 254). stop_playback stops a sequence/theme running on the
-    zone first (it would overwrite the colour). Transient: nothing is stored. DMX and
-    DALI zones; DALI DT8 zones are not supported yet."""
+    zone first (it would overwrite the colour). dali_group (DALI zones, 0-15): send
+    channel n to DALI group dali_group+n instead of per address - one frame per
+    channel however many lights (each channel's gear must be in its group).
+    Transient: nothing is stored. DMX and DALI zones; DALI DT8 zones are not
+    supported yet."""
     from . import colour as _colour
     try:
         zones = await _controller.pull_zones()
@@ -1549,6 +1552,10 @@ async def set_zone_colour(zone: int, colour: str, fade_ms: int = 50,
         if z is None:
             return f"Zone {zone + 1} (index {zone}) is not set up on this controller."
         levels = _colour.parse_levels(colour, z)
+        if dali_group >= 0:
+            if z.get("protocol") != _colour.PROTOCOL_DALI:
+                return "dali_group is for DALI zones."
+            z = dict(z, daligroupoffset=dali_group)
         msgs = _colour.zone_messages(z, levels, _controller._next_id, fade_ms=fade_ms)
         if stop_playback:
             await _controller.stop_zone(zone)
@@ -1848,14 +1855,14 @@ _COLOUR_NAMES = {"red": "#FF0000", "green": "#00FF00", "blue": "#0000FF", "white
 
 @server.tool()
 async def preview_zone(zone: int, protocol: str, line: int, lights: int, channels: str,
-                       start_address: int, dali_group: int = -1) -> str:
+                       start_address: int) -> str:
     """Create or change a Spektra colour zone (0-based; Zone 1 = 0). protocol: dali or
     dmx. line: 1-4. lights: how many fixtures. channels: the colour of each channel
     in order, e.g. 'red,green,blue,white' (also warm, cool, amber, lime, uv, or
     #RRGGBB). start_address: first DALI address / DMX channel; light n starts at
-    start_address + n x channels. dali_group (DALI only, 0-15): address the channels
-    as groups g, g+1, ... instead of per light. Zones apply after a save, which this
-    includes. Returns a token."""
+    start_address + n x channels. The controller always drives a zone per address
+    (set_zone_colour can send a live colour to DALI groups instead). Zones apply after
+    a save, which this includes. Returns a token."""
     try:
         zones = await _controller.pull_zones()
         old = next((z for z in zones if z.get("index") == zone), None)
@@ -1872,14 +1879,14 @@ async def preview_zone(zone: int, protocol: str, line: int, lights: int, channel
             cols.append(hexv.upper())
         n, is_dali = len(cols), protocol.lower() == "dali"
         last = start_address + lights * n - 1
-        if is_dali and dali_group < 0 and (start_address < 0 or last > 63):
+        if is_dali and (start_address < 0 or last > 63):
             return f"DALI addresses would run {start_address}-{last}; they must sit in 0-63."
         if not is_dali and not (1 <= start_address and last <= 512):
             return f"DMX channels would run {start_address}-{last}; they must sit in 1-512."
         new = dict(old, protocol=_ZONE_PROTOCOLS[protocol.lower()], linemask=1 << (line - 1),
                    numLights=lights, numChannels=n, channelColours=cols,
                    startAddress=start_address, multiLineAddressing=0,
-                   daligroupoffset=dali_group if is_dali and dali_group >= 0 else None)
+                   daligroupoffset=None)
         msgs = [spektra_map.zone_to_message(new, _controller._next_id(), is_dali),
                 spektra_map.zone_save_message(_controller._next_id())]
     except Exception as err:  # noqa: BLE001
@@ -1900,8 +1907,7 @@ async def preview_zone(zone: int, protocol: str, line: int, lights: int, channel
                     f"{', ...' if len(hits) > 8 else ''}). Played on a DALI zone, 255 is DALI "
                     "'no change', so those channels stay where they are - re-save them with "
                     "254 as the top value for DALI.")
-    where = (f"DALI groups {dali_group}-{dali_group + n - 1}" if is_dali and dali_group >= 0
-             else f"{'DALI addresses' if is_dali else 'DMX channels'} {start_address}-{last}")
+    where = f"{'DALI addresses' if is_dali else 'DMX channels'} {start_address}-{last}"
     body = (f"  Zone {zone + 1}: {lights} light(s) x {n} channel(s) "
             f"({', '.join(channels.split(','))}), {protocol.upper()} line {line}, {where}")
     token = _new_token(msgs, body)
@@ -2050,3 +2056,172 @@ async def preview_dali2_instance(line: int, address: int, instance: int,
     from .server import _pending
     _pending[token]["runner"] = run
     return f"PREVIEW:\n{body}\nCall confirm(token=\"{token}\")."
+
+
+# --- changed-slot detection (slot manifest checksums) ---------------------------------
+
+def _snapshot_path():
+    import os
+    from pathlib import Path
+    base = os.environ.get("SPEKTRA_AI_STATE") or str(Path.home() / ".spektra_ai")
+    return Path(base) / "manifests.json"
+
+
+def _load_snapshots() -> dict:
+    p = _snapshot_path()
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_snapshots(data: dict) -> None:
+    p = _snapshot_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, indent=1), encoding="utf-8")
+
+
+async def record_slot_snapshot() -> dict | None:
+    """Take the controller's current sequence/theme manifest and store it as the
+    baseline for its MAC. Returns the snapshot, or None without manifest support."""
+    seq = await _controller.spektra_manifest("SEQUENCE")
+    if seq is None:
+        return None
+    thm = await _controller.spektra_manifest("THEME") or {}
+    macs = (await _controller.identify())["macs"]
+    snap = {"sequences": {str(k): v for k, v in seq.items()},
+            "themes": {str(k): v for k, v in thm.items()},
+            "at": __import__("datetime").datetime.now().isoformat(timespec="seconds")}
+    data = _load_snapshots()
+    for mac in macs:
+        data[mac] = snap
+    _save_snapshots(data)
+    return snap
+
+
+def compare_snapshots(old: dict, new: dict) -> dict:
+    out = {}
+    for kind in ("sequences", "themes"):
+        a, b = old.get(kind) or {}, new.get(kind) or {}
+        out[kind] = {"added": sorted(int(k) for k in b.keys() - a.keys()),
+                     "removed": sorted(int(k) for k in a.keys() - b.keys()),
+                     "changed": sorted(int(k) for k in a.keys() & b.keys() if a[k] != b[k])}
+    return out
+
+
+@server.tool()
+async def spektra_slot_changes(update: bool = True) -> str:
+    """Which Spektra sequences and themes changed on the controller since the last
+    snapshot (taken by the previous call, or by pull_spektra_file) - from the
+    controller's per-slot checksums, without reading every slot. Needs firmware
+    1.6.0+. update=True stores the current state as the new baseline. Read-only on
+    the controller."""
+    try:
+        _controller._require()
+        macs = (await _controller.identify())["macs"]
+        old = next((v for m, v in _load_snapshots().items() if m in macs), None)
+        seq = await _controller.spektra_manifest("SEQUENCE")
+        if seq is None:
+            return "This firmware has no slot manifest (needs 1.6.0+); use sync_status instead."
+        thm = await _controller.spektra_manifest("THEME") or {}
+        new = {"sequences": {str(k): v for k, v in seq.items()},
+               "themes": {str(k): v for k, v in thm.items()}}
+        if update:
+            await record_slot_snapshot()
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if old is None:
+        return (f"No earlier snapshot for this controller; recorded one now "
+                f"({len(seq)} sequence(s), {len(thm)} theme(s)). Ask again later to see "
+                "what changed.")
+    diff = compare_snapshots(old, new)
+    rows = [f"Changes since {old.get('at', 'the last snapshot')}:"]
+    any_change = False
+    for kind, d in diff.items():
+        word = kind[:-1].title()
+        for label in ("added", "removed", "changed"):
+            if d[label]:
+                any_change = True
+                rows.append(f"  {kind} {label}: " + ", ".join(f"{word} {i + 1}" for i in d[label]))
+    if not any_change:
+        rows.append("  nothing - every sequence and theme slot is as it was.")
+    return "\n".join(rows)
+
+
+# --- DMX timing and line settings --------------------------------------------------------
+
+_DMX_TIMING = {"fast": 0, "medium": 1, "slow": 2, "normal": 3}
+_DMX_TIMING_NAME = {v: k for k, v in _DMX_TIMING.items()}
+
+
+async def _dmx_line_props(index: int) -> dict:
+    r = await _controller.read_admin("DMX_PROPERTIES", "GET",
+                                     dmx_line_props=pb.AdminDMXLineParameters(line_index=index))
+    if r.WhichOneof("payload") != "admin_message":
+        return {}
+    p = r.admin_message.dmx_line_props
+    return {"line_index": p.line_index, "slots": p.output_slot_count,
+            "sixteen_bit": p.use_16bit_output, "mapping": bytes(p.dmx_slot_mapping_raw)}
+
+
+@server.tool()
+async def get_dmx_settings() -> str:
+    """DMX timing (global) and, for each DMX line, its output slot count, 16-bit
+    output and whether a custom slot mapping is set. Read-only."""
+    try:
+        timing = await ops.admin_get(_controller, "DMX_TIMING")
+        lines = await _controller.read_line_types()
+        rows = [f"DMX timing: {str(timing.get('mode', '?')).replace('DMX_TIMING_', '').lower()}"]
+        for i, t in enumerate(lines):
+            if t in (2, 3):
+                p = await _dmx_line_props(i)
+                rows.append(f"  line {i + 1} ({'output' if t == 2 else 'input'}): "
+                            f"{p.get('slots')} slots, {'16-bit' if p.get('sixteen_bit') else '8-bit'}"
+                            + (", custom slot mapping" if p.get("mapping") else ""))
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return "\n".join(rows)
+
+
+@server.tool()
+async def preview_dmx_settings(timing: str = "", line: int = 0, slots: int = 0,
+                               sixteen_bit: str = "") -> str:
+    """Change DMX output timing (fast / medium / slow / normal - all meet the RDM
+    timing spec; use slower for fixtures that miss frames) and/or one DMX line's
+    output slot count (1-512) and 16-bit output ('on'/'off'; pairs adjacent slots
+    as coarse/fine). line is 1-based. A custom slot mapping is kept. Returns a token."""
+    from .v2 import admin, frame
+    try:
+        msgs, rows = [], []
+        if timing:
+            if timing.lower() not in _DMX_TIMING:
+                return "timing: fast, medium, slow or normal."
+            cur = await ops.admin_get(_controller, "DMX_TIMING")
+            msgs.append(frame(admin(_controller._next_id(), "SET", "DMX_TIMING",
+                                    dmx_timing_mode=pb.AdminDMXGlobalTimingConfig(
+                                        mode=_DMX_TIMING[timing.lower()]))))
+            rows.append(f"  timing: {str(cur.get('mode', '?')).replace('DMX_TIMING_', '').lower()}"
+                        f" -> {timing.lower()}")
+        if slots or sixteen_bit:
+            lines = await _controller.read_line_types()
+            if not 1 <= line <= len(lines) or lines[line - 1] not in (2, 3):
+                return f"Line {line} is not a DMX line on this controller."
+            if slots and not 1 <= slots <= 512:
+                return "slots is 1-512."
+            cur = await _dmx_line_props(line - 1)
+            new_slots = slots or cur.get("slots") or 512
+            new_16 = (sixteen_bit.lower() in ("on", "true", "1")) if sixteen_bit else cur.get("sixteen_bit", False)
+            msgs.append(frame(admin(_controller._next_id(), "SET", "DMX_PROPERTIES",
+                                    dmx_line_props=pb.AdminDMXLineParameters(
+                                        line_index=line - 1, output_slot_count=new_slots,
+                                        use_16bit_output=new_16,
+                                        dmx_slot_mapping_raw=cur.get("mapping", b"")))))
+            rows.append(f"  line {line}: {cur.get('slots')} slots {'16-bit' if cur.get('sixteen_bit') else '8-bit'}"
+                        f" -> {new_slots} slots {'16-bit' if new_16 else '8-bit'}")
+        if not msgs:
+            return "Nothing to change."
+        msgs = await _save_after(msgs)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    token = _new_token(msgs, "\n".join(rows))
+    return "PREVIEW - DMX:\n" + "\n".join(rows) + f"\nCall confirm(token=\"{token}\")."

@@ -56,7 +56,7 @@ and troubleshoot — in plain language:
 - `set_dali_line` (set a line to DALI + reboot), `commission_dali` (robust multi-pass
   addressing + memory-bank grouping into physical fixtures, with an expected-count
   report).
-- `dali_add_to_group`, `dali_set_scenes`, `dali_set_fade_time`, `dali_query_groups`,
+- `dali_add_to_group`, `dali_remove_from_group`, `dali_set_scenes`, `dali_set_fade_time`, `dali_query_groups`,
   `dali_recall_scene`.
 
 **Live events + out-of-band notifications**
@@ -140,11 +140,21 @@ should hold (dates or ranges in a year, sequence/theme by number or name) and li
 every day that differs; `strict` also lists days you did not mention.
 
 **Live colour** — `set_zone_colour` puts a zone on a colour right now (`#RRGGBB` or
-one level per channel) for trying colours while designing; DMX and DALI zones.
+one level per channel) for trying colours while designing; DMX and DALI zones,
+per address or by DALI group (`dali_group`). The controller itself always drives a
+zone per address.
 
 **Network and clock** — `preview_network_settings` (DHCP, static address, DNS;
 optional restart that reconnects, by MAC on DHCP), `preview_clock_settings` (NTP,
 poll period, UTC offset, daylight saving, location), `ntp_sync_now`.
+
+**DMX settings** — `get_dmx_settings` / `preview_dmx_settings` (output timing; per
+line slot count and 16-bit output; a custom slot mapping is kept).
+
+**What changed on the controller** — `spektra_slot_changes` compares the
+controller's per-slot checksums for sequences and themes with the last snapshot
+(taken by the previous call or by `pull_spektra_file`; firmware 1.6.0+), without
+reading every slot.
 
 **Line types** — `preview_line_types` (DALI / DMX output / DMX input / empty per
 line; reboots the controller and reconnects).

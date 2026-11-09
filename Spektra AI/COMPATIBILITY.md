@@ -49,8 +49,9 @@ hardware, and what is still to do.
   momentary inputs, outputs, logic, schedules with any command, sensors, DMX-to-DALI
   translations, burn-ins, zones, names, device/network/clock settings, line types.
 - Health check, diagnostics, device log, SD card listing/reading/search.
-- Live state, `run_command`, profile changes, live colour on DMX and DALI zones
-  (levels read back from the fittings and frames seen on the bus).
+- Live state, `run_command`, profile changes, live colour on DMX and DALI zones,
+  per address and by DALI group (levels read back from the fittings and frames
+  seen on the bus).
 - DALI: commissioning, groups, scenes, fade, levels and status, memory bank 0,
   multi-channel driver re-addressing into channel order.
 - DALI-2: device scan and inspection, re-addressing (24-bit swap), duplicate check,
@@ -58,10 +59,11 @@ hardware, and what is still to do.
 - RDM: discovery, details, identify, start address and label.
 - Notifications from live events (list started, config changed).
 - Functionality statement from a live controller and from a file (identical).
+- Changed-slot detection from the slot manifest checksums; DMX timing and line
+  settings writes.
 
 ## Not yet verified on hardware
 
-- Live colour on a DALI zone addressed by **group** (per-address was verified).
 - Wi-Fi settings **writes** on the ADDICT (reads verified).
 - A network change **with** restart to a new IP or to DHCP (writes without restart
   verified).
@@ -87,12 +89,10 @@ hardware, and what is still to do.
 - DALI-2 push-button authoring on the controller (a live `preview_dali_input`; today
   DALI inputs are written through a `.spektra` push).
 - Live colour for DALI DT8 zones and for zones that continue across lines.
-- Detecting changed sequence/theme slots from the manifest checksums (without a
-  full read).
 - Spreadsheet import/export of inputs, schedules, lists and sensors.
 - User accounts and roles (login secrets per role).
-- Writes for DMX timing, DMX line properties and Link settings (read through
-  `get_device_settings` / `get_diagnostics`).
+- Link settings writes (controller-to-controller UDP link: enable, type, mask,
+  netmask - readable through `get_device_settings`).
 - SD card writes and deletes.
 
 ## Out of scope

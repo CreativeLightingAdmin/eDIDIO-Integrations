@@ -500,6 +500,11 @@ async def pull_spektra_file(host: str, out_path: str, port: int = 23,
         dest = proj.save(out_path)
     except Exception as err:  # noqa: BLE001
         return f"Pulled, but failed to save: {err}"
+    try:  # baseline for spektra_slot_changes (firmware with a slot manifest)
+        from .tools_live import record_slot_snapshot
+        await record_slot_snapshot()
+    except Exception:  # noqa: BLE001 - optional
+        pass
     return f"Pulled live config from {host} to {dest}.\n\n{summarize(proj)}"
 
 
@@ -868,6 +873,21 @@ async def dali_add_to_group(line: int, addresses: str, group: int) -> str:
     if missing:
         msg += f" NOT confirmed for {missing} (retry or check the gear)."
     return msg
+
+
+@server.tool()
+async def dali_remove_from_group(line: int, addresses: str, group: int) -> str:
+    """Remove DALI short addresses from a DALI group (0-15). `addresses` like "0-3".
+    Writes group membership to the gear (sent twice, paced). Verifies via read-back."""
+    try:
+        addrs = _parse_addresses(addresses)
+        await _controller.dali_remove_from_group(line, addrs, group)
+        still = [a for a in addrs if group in await _controller.dali_query_groups(line, a)]
+    except Exception as err:  # noqa: BLE001
+        return f"Error: {err}"
+    done = [a for a in addrs if a not in still]
+    return (f"Removed {done} from group {group}."
+            + (f" Still in the group: {still} (retry or check the gear)." if still else ""))
 
 
 @server.tool()

@@ -1132,6 +1132,11 @@ class SpektraController:
         for a in addresses:
             await self._send_config_twice(line, dali.add_to_group_frame16(a, group))
 
+    async def dali_remove_from_group(self, line: int, addresses: list, group: int) -> None:
+        """Remove each short address from DALI group (0-15). Persisted in the gear."""
+        for a in addresses:
+            await self._send_config_twice(line, dali.remove_from_group_frame16(a, group))
+
     async def dali_set_scene_level(self, line: int, scene: int, level: int,
                                    addresses: list | None = None) -> None:
         """Store `level` (0-254) as DALI `scene` (0-15). Broadcasts to all gear when

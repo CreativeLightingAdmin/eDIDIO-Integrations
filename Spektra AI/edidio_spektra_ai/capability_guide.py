@@ -65,9 +65,10 @@ and ends with a save. Indices are 0-based (List 1 = 0); replies show both.
   functionality_statement (plain-English write-up).
 - **Settings**: preview_device_settings, preview_network_settings,
   preview_clock_settings, ntp_sync_now, set_time, preview_line_types (reboots),
-  preview_logging, wifi_status / preview_wifi_settings (ADDICT).
+  preview_logging, wifi_status / preview_wifi_settings (ADDICT),
+  get_dmx_settings / preview_dmx_settings (timing, slots, 16-bit).
 - **DALI**: dali_scan, dali_levels, commission_dali / preview_dali_commission, set_dali_line,
-  dali_add_to_group, dali_set_scenes, dali_set_fade_time, dali_query_groups,
+  dali_add_to_group, dali_remove_from_group, dali_set_scenes, dali_set_fade_time, dali_query_groups,
   dali_recall_scene, dali_set_level, dali_identify, dali_set_colour (DT8),
   dali_devices / preview_dali_channel_order (multi-channel drivers in channel order).
   DALI-2 control devices: dali2_scan, dali2_device, preview_dali2_readdress,
@@ -75,7 +76,8 @@ and ends with a save. Indices are 0-based (List 1 = 0); replies show both.
 - **RDM** (DMX output line): rdm_discover, rdm_get, rdm_identify, preview_rdm_set.
 - **.spektra files**: pull_spektra_file, preview_push_spektra (only the connected
   controller, only what changed), sync_status, summarize_spektra,
-  validate_spektra, diff_spektra, migrate_spektra_to_v3.
+  validate_spektra, diff_spektra, migrate_spektra_to_v3, spektra_slot_changes
+  (what changed since the last snapshot, from slot checksums).
 - **Watch and notify**: start_watching / recent_events / stop_watching,
   notify_when (ready-made events), notify_on (raw conditions),
   list_notifications / clear_notifications.
