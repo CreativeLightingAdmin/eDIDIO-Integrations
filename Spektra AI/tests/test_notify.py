@@ -110,3 +110,16 @@ def test_clear():
     mgr.register({"kind": "sensor"}, _CaptureChannel())
     mgr.register({"kind": "input"}, _CaptureChannel())
     assert mgr.clear() == 2 and mgr.list() == []
+
+
+def test_presets_match_v2_events():
+    from edidio_spektra_ai.notify import matches, preset_condition
+    occ = {"kind": "sensor", "index": 0, "motion": 3}
+    assert matches(preset_condition("sensor_occupied", 0), occ)
+    assert not matches(preset_condition("sensor_occupied", 1), occ)
+    assert matches(preset_condition("input_pressed"), {"kind": "input", "press": 1})
+    assert not matches(preset_condition("input_pressed"), {"kind": "input", "press": 2})
+    err = {"kind": "dali", "direction": 0, "ok": False, "status_name": "TIMEOUT", "line": 0}
+    assert matches(preset_condition("dali_error", 1), err)
+    assert not matches(preset_condition("dali_error"), {**err, "status_name": "ATTEMPT"})
+    assert matches(preset_condition("client_connected"), {"kind": "net", "event_name": "TLS_CONNECT"})

@@ -846,8 +846,11 @@ class SpektraController:
             # Firmware >= 1.4.0 uses Event Stream v2 (tag 77); older uses legacy tag 34.
             fw = (await self.read_system_counts()).get("firmware", "")
             use_v2 = spektra_map.version_gte(fw, "1.4.0") if fw else True
+            # A second connection, made the same way as ours (port, TLS context).
+            host, port, tls = self.host, getattr(self, "port", 23), getattr(self, "use_tls", False)
             event_stream = EventStream(
-                self.host, on_event=self.notifications.handle_event, use_v2=use_v2)
+                host, port, tls, on_event=self.notifications.handle_event, use_v2=use_v2,
+                client_factory=lambda: self._factory(host, port, tls))
         self._events = event_stream
         await self._events.start(categories)
         if self._deadline_task is None:

@@ -57,6 +57,10 @@ and troubleshoot — in plain language:
   real-time event stream (inputs, sensors, DALI bus frames, triggers) on a dedicated
   connection. Auto-selects the firmware's event API (v2 `EventStreamMessage` on
   fw ≥ 1.4.0, legacy `EventMessage` below).
+- `notify_when` — ready-made events: input pressed / closed / opened, sensor
+  occupied / warning / idle, list started, schedule fired, config changed (with the
+  client's IP), restart, client connected, network link down, Spektra started,
+  DALI send errors.
 - `notify_on` / `list_notifications` / `clear_notifications` — fire a notification
   (log / webhook / email) **out-of-band** when an event matches a condition
   (e.g. *"when the foyer sensor goes MOTION_IDLE"*), independent of the chat.
@@ -102,6 +106,18 @@ override).
 label, start address, footprint and personalities), `rdm_identify`,
 `preview_rdm_set` (start address, personality, label; read back after),
 `rdm_get` (any parameter).
+
+**Functionality statement** — `functionality_statement` writes what the lighting
+control does in plain English (profiles and what switches them, schedules, inputs,
+sensors, DALI-2 inputs, lists, logic, outputs, zones, Spektra content) from the
+connected controller or a `.spektra` file, optionally saved as Markdown.
+
+**Live colour** — `set_zone_colour` puts a zone on a colour right now (`#RRGGBB` or
+one level per channel) for trying colours while designing; DMX and DALI zones.
+
+**Network and clock** — `preview_network_settings` (DHCP, static address, DNS;
+optional restart that reconnects, by MAC on DHCP), `preview_clock_settings` (NTP,
+poll period, UTC offset, daylight saving, location), `ntp_sync_now`.
 
 **Line types** — `preview_line_types` (DALI / DMX output / DMX input / empty per
 line; reboots the controller and reconnects).
@@ -168,7 +184,7 @@ Restart Claude Desktop; the Spektra AI tools + the capability guide appear.
 ## Testing
 
 ```bash
-python -m pytest -q     # 196 tests, no controller required
+python -m pytest -q     # 199 tests, no controller required
 ```
 
 Everything is verified with **no controller** (stub clients + real-file fixtures).
@@ -210,7 +226,7 @@ Spektra AI/
 │   └── templates/           # bundled controller template (device skeleton)
 ├── tools/build_alma.py      # example: generate a project from a functionality statement
 ├── CAPABILITY_GUIDE.md      # generated snapshot of the guide
-└── tests/                   # 196 tests (stub clients + real-file fixtures)
+└── tests/                   # 199 tests (stub clients + real-file fixtures)
 ```
 
 ### Fidelity notes (mirroring SpektraPlus)

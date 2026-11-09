@@ -1287,3 +1287,278 @@ async def preview_rdm_set(line: int, uid: str, start_address: int = 0,
     _pending[token]["runner"] = run
     return (f"PREVIEW for {cur.get('manufacturer', '')} {cur.get('model', '')} {uid}:\n"
             + "\n".join(lines) + f"\nCall confirm(token=\"{token}\") to send.")
+
+
+# --- functionality statement ----------------------------------------------------------
+
+@server.tool()
+async def functionality_statement(path: str = "", out_path: str = "", title: str = "") -> str:
+    """Write a functionality statement - what the lighting control does, in plain
+    English: profiles and what switches them, schedules, inputs, sensors, DALI-2
+    inputs, lists, logic, outputs, colour zones and Spektra content. From the
+    CONNECTED controller (path empty; also uses the names stored on it - takes about
+    a minute to read everything) or from a .spektra file (path). out_path saves it
+    as Markdown. Read-only."""
+    from . import statement
+    from .spektra_file import load_spektra
+    try:
+        names_by_mac = {}
+        if path:
+            proj = load_spektra(path).raw
+        else:
+            _controller._require()
+            proj = await _controller.pull_project()
+            names = {}
+            for kind in ops.ALIAS_KINDS:
+                try:
+                    names[kind] = await ops.aliases(_controller, kind)
+                except Exception:  # noqa: BLE001 - names are optional
+                    pass
+            names_by_mac = {mac: names for mac in proj["edidios"]}
+        text = statement.project_statement(proj, names_by_mac, title)
+        if out_path:
+            with open(out_path, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(text)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return text + (f"\n(Saved to {out_path}.)" if out_path else "")
+
+
+# --- network and clock settings --------------------------------------------------------
+
+def _ipv4(text: str, what: str, *, blank_ok: bool = False) -> str:
+    text = (text or "").strip()
+    if blank_ok and not text:
+        return ""
+    try:
+        ipaddress.IPv4Address(text)
+    except ValueError:
+        raise ValueError(f"{what} '{text}' is not an IPv4 address") from None
+    return text
+
+
+_NET_FIELDS = {"dhcp": "DHCP", "ip": "IP", "subnet": "subnet", "gateway": "gateway",
+               "dns1": "DNS_Primary", "dns2": "DNS_Secondary"}
+
+
+@server.tool()
+async def preview_network_settings(dhcp: str = "", ip: str = "", subnet: str = "",
+                                   gateway: str = "", dns1: str = "", dns2: str = "",
+                                   reboot: bool = False) -> str:
+    """Change the controller's network settings. Only what you give changes:
+    dhcp ('on'/'off'), ip / subnet / gateway (the static address, used when DHCP is
+    off), dns1 / dns2. They take effect at the next restart; reboot=True restarts now
+    and reconnects (to the new static IP, or finds the controller again by MAC on
+    DHCP). CAUTION: a wrong address can take the controller off the network until
+    someone sets it from its display. Returns a token."""
+    try:
+        r = await _controller.read_admin("NETWORK_PROPERTIES")
+        if r.WhichOneof("payload") != "admin_message":
+            return "This controller does not report its network settings."
+        cur = r.admin_message.network_properties
+        new = pb.AdminNetworkPropertiesMessage()
+        new.CopyFrom(cur)
+        new.error = ""
+        changes = []
+        if dhcp:
+            if dhcp.lower() not in ("on", "off", "true", "false", "1", "0"):
+                return "dhcp: 'on' or 'off'."
+            new.DHCP = dhcp.lower() in ("on", "true", "1")
+        for key, val in (("ip", ip), ("subnet", subnet), ("gateway", gateway)):
+            if val:
+                setattr(new, _NET_FIELDS[key], _ipv4(val, key))
+        for key, val in (("dns1", dns1), ("dns2", dns2)):
+            if val:
+                setattr(new, _NET_FIELDS[key], _ipv4(val, key))
+        for key, field in _NET_FIELDS.items():
+            a, b = getattr(cur, field), getattr(new, field)
+            if a != b:
+                changes.append(f"  {key}: {a} -> {b}")
+        if not changes:
+            return "No change."
+        if not new.DHCP:
+            for field in ("IP", "subnet", "gateway"):
+                _ipv4(getattr(new, field), f"static {field} (needed with DHCP off)")
+            net = ipaddress.IPv4Network(f"{new.IP}/{new.subnet}", strict=False)
+            if ipaddress.IPv4Address(new.gateway) not in net:
+                changes.append(f"  WARNING: gateway {new.gateway} is not in {net}")
+        mac = cur.MAC
+        from .v2 import frame as _frame_v2
+        frame = _frame_v2(
+            pb.EdidioMessage(message_id=_controller._next_id(), admin_message=pb.AdminMessage(
+                command=pb.AdminCommandType.SET,
+                target=pb.AdminPropertyType.NETWORK_PROPERTIES, network_properties=new)))
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+
+    async def run():
+        from .v2 import ack_summary
+        ack = ack_summary(await _controller._require().request(frame))
+        if not ack["ok"]:
+            return f"Refused: {ack}" + (" (needs an ADMIN login)" if ack["code"] == "UNAUTHORISED" else "")
+        save = await _controller.send_and_ack([spektra_map.device_save_message(_controller._next_id())])
+        if not reboot:
+            return f"Saved ({save[0]['code']}). The new settings apply at the next restart."
+        await _controller.reboot()
+        old_host = _controller.host
+        if not new.DHCP and new.IP and new.IP != old_host:
+            _controller.host = new.IP
+        back = await _controller.wait_for_reboot()
+        if not back and new.DHCP:
+            from . import discovery
+            for d in discovery.discover():
+                if (d.get("MAC") or "").replace("-", ":").upper() == mac.upper():
+                    await _controller.connect(d["IP"], _controller.port, _controller.use_tls)
+                    back = _controller.connected
+                    break
+        where = _controller.host if back else "(not found)"
+        return (f"Saved and restarted. Controller is back at {where}." if back else
+                f"Saved and restart sent, but the controller did not come back at {old_host}"
+                " or by discovery. Check it from its display.")
+
+    token = _new_token([], "\n".join(changes))
+    from .server import _pending
+    _pending[token]["runner"] = run
+    return ("PREVIEW - network settings:\n" + "\n".join(changes)
+            + ("\nThe controller will RESTART to apply them." if reboot else
+               "\nThey apply at the next restart.")
+            + f"\nCall confirm(token=\"{token}\") to write.")
+
+
+@server.tool()
+async def preview_clock_settings(ntp: str = "", ntp_server: str = "",
+                                 ntp_poll_hours: float = 0, utc_offset: float = 99,
+                                 daylight_savings: str = "", latitude: float = 999,
+                                 longitude: float = 999) -> str:
+    """Change how the controller keeps time: ntp ('on'/'off'), ntp_server (host name
+    or IP, < 32 chars), ntp_poll_hours (how often it re-syncs), utc_offset (hours,
+    -14..14), daylight_savings ('on'/'off'), latitude/longitude (for sunrise/sunset
+    schedules). Only what you give changes. Returns a token. (ntp_sync_now syncs
+    immediately; set_time sets the clock from this computer.)"""
+    from .v2 import admin, frame
+    try:
+        msgs, lines = [], []
+        if ntp or ntp_server or ntp_poll_hours:
+            r = await _controller.read_admin("NTP_DETAILS")
+            if r.WhichOneof("payload") != "admin_message":
+                return "This controller has no NTP settings."
+            cur = r.admin_message.network_properties
+            server_name = ntp_server or cur.NTPServer
+            if not 0 < len(server_name) < 32:
+                return "ntp_server must be 1-31 characters."
+            on = cur.NTP if not ntp else ntp.lower() in ("on", "true", "1")
+            secs = int(ntp_poll_hours * 3600) if ntp_poll_hours else cur.NTPTimeout
+            if not 0 < secs <= 65535:
+                return "ntp_poll_hours must be up to 18.2 hours (65535 s)."
+            msgs.append(frame(admin(_controller._next_id(), "SET", "NTP_DETAILS",
+                                    network_properties=pb.AdminNetworkPropertiesMessage(
+                                        NTPServer=server_name, NTP=on, NTPTimeout=secs))))
+            lines.append(f"  NTP: {'on' if cur.NTP else 'off'} '{cur.NTPServer}' every "
+                         f"{cur.NTPTimeout / 3600:.1f} h -> {'on' if on else 'off'} "
+                         f"'{server_name}' every {secs / 3600:.1f} h")
+        for key, val in (("utc_offset", utc_offset if utc_offset != 99 else None),
+                         ("latitude", latitude if latitude != 999 else None),
+                         ("longitude", longitude if longitude != 999 else None)):
+            if val is not None:
+                msgs.append(ops.setting_message(_controller, key, val))
+                lines.append(f"  {key} -> {val}")
+        if daylight_savings:
+            msgs.append(ops.setting_message(_controller, "daylight_savings",
+                                            daylight_savings.lower() in ("on", "true", "1")))
+            lines.append(f"  daylight saving -> {daylight_savings}")
+        if not msgs:
+            return "Nothing to change."
+        msgs = await _save_after(msgs)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    token = _new_token(msgs, "\n".join(lines))
+    return "PREVIEW - clock:\n" + "\n".join(lines) + f"\nCall confirm(token=\"{token}\")."
+
+
+@server.tool()
+async def ntp_sync_now() -> str:
+    """Ask the controller to sync its clock from its NTP server now, then report the
+    result (last correction, server, stratum)."""
+    import asyncio
+    try:
+        from .v2 import ack_summary
+        ack = ack_summary(await _controller.read_admin("NTP_FORCE_SYNC", "RUN"))
+        if not ack["ok"]:
+            return f"Refused: {ack}"
+        await asyncio.sleep(4)
+        td = await ops.admin_get(_controller, "TIME_DIAGNOSTICS")
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return (f"NTP sync requested. Last result: {td.get('last_ntp_error')}, correction "
+            f"{td.get('last_ntp_correction_seconds')} s, stratum {td.get('last_ntp_stratum')}, "
+            f"round trip {td.get('last_ntp_rtt_ms')} ms, from '{td.get('ntp_server_hostname')}'.")
+
+
+# --- notifications (friendly) -------------------------------------------------------
+
+@server.tool()
+async def notify_when(event: str, index: int = -1, channel: str = "log", label: str = "",
+                      webhook_url: str = "", one_shot: bool = True) -> str:
+    """Send an OUT-OF-BAND notification when something happens on the controller (fires
+    independently of this chat). event: input_pressed, input_short_press,
+    input_long_press, input_closed, input_opened, sensor_occupied, sensor_warning,
+    sensor_idle, list_started, list_step, schedule_fired, schedule_ended,
+    config_changed (a config write - says what and which client; renames do not
+    count), restart,
+    client_connected, client_disconnected, network_link_down, spektra_started,
+    spektra_stopped, dali_error (a DALI send that failed, e.g. no bus power).
+    index: which one, 0-based (Input 1 = 0, List 3 = 2, Schedule 1 = 0, zone for
+    spektra_*); for dali_error the line 1-4. -1 = any. Channels: log (default, kept
+    in-process - see list_notifications), webhook (POSTs the event JSON to
+    webhook_url - sends data to an external service), email (needs SMTP config).
+    one_shot=False keeps it armed. Starts watching every event category."""
+    from . import notify
+    from .server import _log_channel
+    try:
+        cond = notify.preset_condition(event, index)
+        _controller._require()
+        ev = _controller._events
+        if ev is None or not ev.running or len(ev.categories) < 6:
+            await _controller.start_events(("trigger", "inputs", "dali", "sensors", "schedule",
+                                            "lists", "config", "network", "event"))
+        chan = notify.make_channel(channel, log_channel=_log_channel, webhook_url=webhook_url)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    n = _controller.notifications.register(cond, chan, label=label or event,
+                                          one_shot=one_shot)
+    which = "" if index < 0 else (f" line {index}" if event == "dali_error" else f" #{index + 1}")
+    return (f"Notification #{n.id} armed on {_controller.host} [{channel}]: {event}{which}"
+            f"{'' if one_shot else ' (repeating)'}. It fires out-of-band when it happens.")
+
+
+# --- live colour ------------------------------------------------------------------------
+
+@server.tool()
+async def set_zone_colour(zone: int, colour: str, fade_ms: int = 50,
+                          stop_playback: bool = True) -> str:
+    """Set a Spektra zone (0-based; Zone 1 = 0) to a colour RIGHT NOW - for trying
+    colours while designing sequences and themes. colour: '#RRGGBB' (mapped onto the
+    zone's red/green/blue channels) or one level per channel, '255,0,0,128' (0-255;
+    DALI channels cap at 254). stop_playback stops a sequence/theme running on the
+    zone first (it would overwrite the colour). Transient: nothing is stored. DMX and
+    DALI zones; DALI DT8 zones are not supported yet."""
+    from . import colour as _colour
+    try:
+        zones = await _controller.pull_zones()
+        z = next((x for x in zones if x.get("index") == zone), None)
+        if z is None:
+            return f"Zone {zone + 1} (index {zone}) is not set up on this controller."
+        levels = _colour.parse_levels(colour, z)
+        msgs = _colour.zone_messages(z, levels, _controller._next_id, fade_ms=fade_ms)
+        if stop_playback:
+            await _controller.stop_zone(zone)
+        acks = await _controller.send_and_ack(msgs)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    bad = [a for a in acks if not a.get("ok")]
+    kind = "DMX" if z.get("protocol") == _colour.PROTOCOL_DMX else "DALI"
+    what = (f"Zone {zone + 1}: {z.get('numLights')} light(s) x {z.get('numChannels')} "
+            f"channel(s) ({kind}) set to {levels}")
+    if bad:
+        return f"{what} - {len(bad)} of {len(acks)} message(s) refused: {bad[0]}"
+    return what + f" ({len(acks)} message(s), fade {fade_ms} ms)."

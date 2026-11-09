@@ -147,3 +147,50 @@ def test_sd_helpers():
                             (9 << 11) | (48 << 5) | 16) == "2026-09-07 09:48:32"
     assert ops.fat_datetime(0, 0) == ""
     assert ops._sd_path("/logs/sys/") == "logs/sys"
+
+
+def test_functionality_statement_groups_profiles_and_skips_blanks():
+    from edidio_spektra_ai import statement
+    mac = "40:D8:55:00:00:01"
+    pc = {"commandtype": 1, "zone": 0, "linemask": 1, "target": 80, "value": 5, "query": 0}
+    off = {**pc, "value": 0}
+    nc = {"commandtype": 254}
+    inp = {"index": 0, "type": 1, "shortLowAction": pc, "longHighAction": off}
+    blank = {"index": 1, "type": 0, "shortLowAction": nc, "longHighAction": nc}
+    ed = {"hardwareVersion": "6P-1007-X", "firmwareVersion": "1.6.3", "lineTypes": [1, 2],
+          "network": {"deviceName": "Foyer"},
+          "profiles": [{"inputs": [inp, blank]}, {"inputs": [inp, blank]}],
+          "schedules": [{"index": 0, "IsEnabled": True, "repeat": 2, "weekdaysMask": 0x1F,
+                         "startEvent": {"command": {"commandtype": 30, "target": 1},
+                                        "type": 0, "time": "18:00:00"},
+                         "endEvent": {"command": nc}}],
+          "lists": [{"index": 2, "state": 0, "steps": [
+              {"index": 0, "action": pc, "time_until_next": 90}]}]}
+    text = statement.project_statement({"edidios": {mac: ed}}, title="Test")
+    assert "**Input 1** (all profiles): latching contact - when closed: DALI MAX" in text
+    assert "Input 2" not in text                                   # blank slot skipped
+    assert "Schedule 1**: at 18:00, on working days (Monday to Friday)" in text
+    assert "Profiles are changed by: Schedule 1 at 18:00" in text
+    assert "then wait 1 min 30 s" in text
+
+
+def test_zone_colour_messages():
+    from edidio_spektra_ai import colour
+    from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+    ids = iter(range(1, 100))
+    dmx = {"index": 0, "protocol": 1, "numChannels": 3, "numLights": 5, "linemask": 2,
+           "channelColours": ["#00FF00", "#FF0000", "#0000FF"]}
+    assert colour.parse_levels("#FF8000", dmx) == [128, 255, 0]       # G, R, B channels
+    f = colour.zone_messages(dmx, [128, 255, 0], lambda: next(ids))
+    m = v2pb.EdidioMessage.FromString(f[0][3:]).dmx_message
+    assert len(f) == 1 and m.channel == 0xFFFF and list(m.level) == [128, 255, 0]
+    dali = {"index": 1, "protocol": 0, "numChannels": 2, "numLights": 3, "linemask": 1,
+            "startAddress": 4, "daligroupoffset": None}
+    f = colour.zone_messages(dali, [255, 10], lambda: next(ids))
+    msgs = [v2pb.EdidioMessage.FromString(x[3:]).dali_message for x in f]
+    assert [(d.address, d.arg) for d in msgs] == [(4, 254), (5, 10), (6, 254), (7, 10),
+                                                 (8, 254), (9, 10)]
+    grp = {**dali, "daligroupoffset": 2}
+    msgs = [v2pb.EdidioMessage.FromString(x[3:]).dali_message
+            for x in colour.zone_messages(grp, [1, 2], lambda: next(ids))]
+    assert [d.address for d in msgs] == [66, 67]

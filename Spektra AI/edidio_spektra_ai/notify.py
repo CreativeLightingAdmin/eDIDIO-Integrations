@@ -113,9 +113,18 @@ class Notification:
 
 def matches(condition: dict, event: dict) -> bool:
     """True if every key in ``condition`` equals the event's value (case-insensitive
-    for strings). Unknown keys simply won't match, so a bad condition never fires."""
+    for strings). A list value means "any of"; {"not": v} means "anything but v".
+    Unknown keys simply won't match, so a bad condition never fires."""
     for key, want in condition.items():
         got = event.get(key)
+        if isinstance(want, dict) and "not" in want:      # {"not": value}
+            if matches({key: want["not"]}, event):
+                return False
+            continue
+        if isinstance(want, list):                         # any of these values
+            if not any(matches({key: w}, event) for w in want):
+                return False
+            continue
         if isinstance(want, str) and isinstance(got, str):
             if want.lower() != got.lower():
                 return False
@@ -198,3 +207,52 @@ def make_channel(kind: str, *, log_channel=None, webhook_url: str = "",
     if kind == "email":
         return EmailChannel(**(email or {}))
     raise ValueError(f"unknown channel '{kind}' (use log, webhook or email)")
+
+
+# --- friendly presets (Event Stream v2 field values) -----------------------------------
+
+# InputEvent.press_type for physical inputs: 0 short, 1 long, 2 latch low (closed),
+# 3 latch high (opened). SensorEvent.motion_state: 0 idle, 1 disabled, 2 warning,
+# 3 occupancy.
+PRESETS = {
+    "input_pressed": ({"kind": "input", "press": [0, 1]}, "input"),
+    "input_short_press": ({"kind": "input", "press": 0}, "input"),
+    "input_long_press": ({"kind": "input", "press": 1}, "input"),
+    "input_closed": ({"kind": "input", "press": 2}, "input"),
+    "input_opened": ({"kind": "input", "press": 3}, "input"),
+    "sensor_occupied": ({"kind": "sensor", "motion": 3}, "sensor"),
+    "sensor_warning": ({"kind": "sensor", "motion": 2}, "sensor"),
+    "sensor_idle": ({"kind": "sensor", "motion": 0}, "sensor"),
+    "list_started": ({"kind": "list", "step": 0}, "list"),
+    "list_step": ({"kind": "list"}, "list"),
+    "schedule_fired": ({"kind": "schedule", "is_end": False}, "schedule"),
+    "schedule_ended": ({"kind": "schedule", "is_end": True}, "schedule"),
+    "config_changed": ({"kind": "config"}, "config"),
+    "restart": ({"kind": "boot"}, None),
+    "client_connected": ({"kind": "net", "event_name": ["TCP_CONNECT", "TLS_CONNECT"]}, None),
+    "client_disconnected": ({"kind": "net",
+                             "event_name": ["TCP_DISCONNECT", "TLS_DISCONNECT"]}, None),
+    "network_link_down": ({"kind": "net", "event_name": "LINK_DOWN"}, None),
+    "spektra_started": ({"kind": "spektra", "action": 1}, "zone"),
+    "spektra_stopped": ({"kind": "spektra", "action": 2}, "zone"),
+    "dali_error": ({"kind": "dali", "direction": 0, "ok": False,
+                    "status_name": {"not": "ATTEMPT"}}, "line"),
+}
+_INDEX_FIELD = {"input": "index", "sensor": "index", "list": "index", "schedule": "index",
+                "config": "read_type", "zone": "zone", "line": "line"}
+
+
+def preset_condition(event: str, index: int = -1) -> dict:
+    """A friendly event name (+ optional 0-based index / 1-based line for dali_error)
+    -> a matches() condition over decoded v2 events."""
+    key = event.strip().lower()
+    if key not in PRESETS:
+        raise ValueError(f"event: one of {', '.join(sorted(PRESETS))}")
+    cond, kind = PRESETS[key]
+    cond = dict(cond)
+    if index >= 0 and kind:
+        if kind == "line":
+            cond["line"] = index - 1 if index >= 1 else 0     # DaliFrame lines are 0-based
+        else:
+            cond[_INDEX_FIELD[kind]] = index
+    return cond
