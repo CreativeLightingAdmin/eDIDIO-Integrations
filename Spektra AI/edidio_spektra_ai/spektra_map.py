@@ -14,6 +14,8 @@ from datetime import datetime
 import edidio_control_py.eDS10_ProtocolBuffer_pb2 as pb
 from edidio_control_py import EdidioClient
 
+from .sync import device_sequence_title, device_theme_title
+
 # --- small enums mirrored from SpektraPlus/shared/src/constants.ts ---
 _TIME_MS, _TIME_S, _TIME_MIN, _TIME_HR = 0, 1, 2, 3
 _DIR_FORWARD, _DIR_REVERSE, _DIR_CYCLE = 0, 1, 2
@@ -225,7 +227,8 @@ def sequence_to_message(seq: dict, message_id: int, is_dali: bool = False) -> by
         random_types_mask=mask,
         is_reverse_direction=1 if direction == _DIR_REVERSE else 0,
         is_cycle_direction=1 if direction == _DIR_CYCLE else 0,
-        title=str(seq.get("name", "")),
+        # Cut to what the controller stores (23 bytes); > 27 bytes fails decode.
+        title=device_sequence_title(str(seq.get("name", ""))),
         has_random_colour_order=bool(seq.get("hasRandomColourOrder", False)),
         args=args,
     )
@@ -237,7 +240,7 @@ def theme_to_message(theme: dict, message_id: int, is_dali: bool = False) -> byt
         message_id,
         index=int(theme["index"]),
         colours=_colours_list(theme.get("colours"), is_dali),
-        title=str(theme.get("name", "")),
+        title=device_theme_title(str(theme.get("name", ""))),
     )
 
 
@@ -401,15 +404,23 @@ def list_step_to_dict(pb, index: int = 0) -> dict:
             "duration": duration, "timeUnit": unit, "time_until_next": secs}
 
 
-def list_to_dict(pb) -> dict:
-    """ListMessage -> EdidioList dict (first-block steps; extended steps not fetched)."""
-    state = pb.list_state
-    steps = [list_step_to_dict(s, i) for i, s in enumerate(pb.step)]
+LIST_BLOCK = 32          # steps per ListMessage / ExtendedListMessage block
+LIST_MAX_STEPS = 255     # firmware 1.6.3 (the last block of a 255-step list was refused before)
+LIST_STATES = {0: "disabled", 1: "enabled", 2: "looping", 3: "random loop",
+               4: "random withdrawn", 5: "random withdrawn loop"}
+
+
+def list_to_dict(pb, extra_steps=()) -> dict:
+    """ListMessage (+ ExtendedListMessage steps) -> EdidioList dict, read as
+    SpektraPlus reads it: state = list_state & 0x0F, isShow = high nibble set,
+    loop_on_startup always False (the device has no such field)."""
+    raw = pb.list_state
+    steps = [list_step_to_dict(s, i) for i, s in enumerate(list(pb.step) + list(extra_steps))]
     return {
         "name": f"List {pb.list_index + 1}", "index": pb.list_index,
-        "loop_on_startup": state in (0x02, 0x03, 0x05), "state": state,
-        "steps": steps, "totalStepCount": pb.total_step_count or len(steps),
-        "isShow": 0x10 <= state <= 0x12, "scheduledDates": [], "error": None,
+        "loop_on_startup": False, "state": raw & 0x0F,
+        "steps": steps, "totalStepCount": len(steps),
+        "isShow": (raw & 0xF0) != 0, "scheduledDates": [], "error": None,
     }
 
 
@@ -456,15 +467,53 @@ def logic_to_message(logic_list: list, message_id: int) -> bytes:
     return _frame(message_id, logic_message=pb.LogicMultiMessage(logic=items))
 
 
+def _list_steps(steps, offset=0):
+    return [pb.ListStepMessage(step_index=offset + n,
+                               time_seconds=int(s.get("time_until_next", 0)),
+                               action=_pb_trigger(s.get("action")))
+            for n, s in enumerate(steps)]
+
+
+def list_to_messages(lst: dict, next_id) -> list:
+    """EdidioList dict -> [ListMessage (first 32 steps), ExtendedListMessage per
+    further 32] frames, as SpektraPlus sends them. next_id is a callable returning
+    message ids. NOTE: writing list 0 erases the steps of EVERY list on the
+    controller, see lists_write_order."""
+    steps = list(lst.get("steps") or [])
+    if len(steps) > LIST_MAX_STEPS:
+        raise ValueError(f"List {int(lst['index']) + 1} has {len(steps)} steps; "
+                         f"the controller holds at most {LIST_MAX_STEPS}")
+    state = int(lst.get("state", 0)) & 0x0F
+    if lst.get("isShow"):
+        state |= 0x10
+    out = [_frame(next_id(), list=pb.ListMessage(
+        list_index=int(lst["index"]), list_state=state,
+        step=_list_steps(steps[:LIST_BLOCK])))]
+    for off in range(LIST_BLOCK, len(steps), LIST_BLOCK):
+        ext = pb.ExtendedListMessage(list_index=int(lst["index"]), step_index_offset=off,
+                                     step=_list_steps(steps[off:off + LIST_BLOCK], off))
+        out.append(_frame(next_id(), list_extended=ext))
+    return out
+
+
 def list_to_message(lst: dict, message_id: int, is_dali: bool = False) -> bytes:
-    """EdidioList dict -> ListMessage frame."""
-    steps = [pb.ListStepMessage(step_index=n,
-                                time_seconds=int(s.get("time_until_next", 0)),
-                                action=_pb_trigger(s.get("action")))
-             for n, s in enumerate(lst.get("steps") or [])]
-    return _frame(message_id, list=pb.ListMessage(
-        list_index=int(lst["index"]), list_state=int(lst.get("state", 0)),
-        total_step_count=len(steps), step=steps))
+    """First block only (kept for callers that want one frame); prefer
+    list_to_messages for lists over 32 steps."""
+    first = {**lst, "steps": (lst.get("steps") or [])[:LIST_BLOCK]}
+    return list_to_messages(first, lambda: message_id)[0]
+
+
+def lists_write_order(changed: list, all_lists: list) -> list:
+    """The lists to write, in order, so nothing is lost: if list 0 is among the
+    changes it goes first and every other list that has steps is rewritten after it
+    (writing list 0 erases all list steps on the controller)."""
+    by_index = {int(item["index"]): item for item in all_lists}
+    for item in changed:
+        by_index[int(item["index"])] = item
+    if any(int(item["index"]) == 0 for item in changed):
+        return [by_index[i] for i in sorted(by_index)
+                if i == 0 or by_index[i].get("steps")]
+    return sorted(changed, key=lambda x: int(x["index"]))
 
 
 # --- sensors + DALI inputs (line/version helpers) ---------------------------

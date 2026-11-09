@@ -9,6 +9,7 @@ so the whole thing is testable with a stub client (no network).
 from __future__ import annotations
 
 import asyncio
+import ssl
 from datetime import datetime
 
 import edidio_control_py.eDS10_ProtocolBuffer_pb2 as pb
@@ -20,7 +21,7 @@ from edidio_control_py import (
     SpektraTargetType,
 )
 
-from . import dali, discovery, spektra_map
+from . import dali, discovery, spektra_map, v2
 from .event_stream import DEFAULT_CATEGORIES, EventStream
 from .notify import NotificationManager
 from .scheduling import next_scheduled, parse_calendar_overview
@@ -32,8 +33,31 @@ ZONE_SCAN = 10
 CALENDAR_PAGES = 5   # 5 pages x 90 days covers the 366-day year
 
 
+def legacy_tls_context() -> "ssl.SSLContext":
+    """TLS for eDIDIO controllers: TLS 1.2 only, the fleet's RSA-1024 certificate
+    accepted (OpenSSL security level 0), no hostname or chain check. The device cert
+    binds to the device's own ID, not an address, so there is no name to verify
+    (SpektraPlus connects the same way). A default context fails the handshake
+    (SSLV3_ALERT_HANDSHAKE_FAILURE)."""
+    import ssl
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+    try:
+        ctx.set_ciphers("DEFAULT@SECLEVEL=0")
+    except ssl.SSLError:  # a build without security levels still has the suites
+        pass
+    return ctx
+
+
 def _default_factory(host, port, use_tls):
-    return EdidioClient(host, port, use_tls=use_tls)
+    return EdidioClient(host, port, use_tls=use_tls,
+                        ssl_context=legacy_tls_context() if use_tls else None)
+
+
+CONNECT_ATTEMPTS = 3   # an ADDICT on Wi-Fi sometimes misses the first SYN
 
 
 class SpektraController:
@@ -54,9 +78,24 @@ class SpektraController:
     async def connect(self, host: str, port: int = 23, use_tls: bool = False):
         if self._client is not None:
             await self._client.disconnect()
-        self._client = self._factory(host, port, use_tls)
-        await self._client.connect()
+        if use_tls and port == 23:
+            port = 443   # TLS is served on 443; 23 is plain TCP
+        last = None
+        for attempt in range(CONNECT_ATTEMPTS):
+            self._client = self._factory(host, port, use_tls)
+            try:
+                await self._client.connect()
+                break
+            except Exception as err:  # noqa: BLE001 — retried, then re-raised
+                last = err
+                if "TLS" in str(err) or attempt == CONNECT_ATTEMPTS - 1:
+                    self._client = None
+                    raise
+                await asyncio.sleep(1.0)
+        else:  # pragma: no cover
+            raise last
         self.host = host
+        self.port, self.use_tls = port, use_tls
         return self.connected
 
     async def disconnect(self):
@@ -94,6 +133,11 @@ class SpektraController:
 
     @staticmethod
     def _ack_summary(reply: "pb.EdidioMessage") -> dict:
+        if hasattr(reply, "SerializeToString"):
+            try:
+                return v2.ack_summary(reply)   # adds the RejectReason on a refusal
+            except Exception:  # noqa: BLE001 — fall back to the legacy view
+                pass
         which = reply.WhichOneof("payload")
         if which == "ack":
             code = reply.ack.payload
@@ -279,11 +323,25 @@ class SpektraController:
         return []
 
     async def pull_lists(self, list_count: int) -> list:
+        """Every list with all its steps (blocks past 32 via LIST_EXTENDED)."""
         out = []
         for i in range(list_count):
             reply = await self._read_device(ReadType.LIST, i)
-            if reply.WhichOneof("payload") == "list":
-                out.append(spektra_map.list_to_dict(reply.list))
+            if reply.WhichOneof("payload") != "list":
+                continue
+            base = reply.list
+            total = min(base.total_step_count, spektra_map.LIST_MAX_STEPS)
+            extra = []
+            off = len(base.step)
+            while off < total:
+                ext = v2.to_v2(await self._client.request(
+                    EdidioClient.create_read_device_message(
+                        self._next_id(), ReadType.LIST_EXTENDED, i, off, 0)))
+                if ext.WhichOneof("payload") != "list_extended" or not ext.list_extended.step:
+                    break
+                extra.extend(ext.list_extended.step)
+                off += len(ext.list_extended.step)
+            out.append(spektra_map.list_to_dict(base, extra))
         return out
 
     def _resolve_mac(self) -> str:
@@ -327,10 +385,27 @@ class SpektraController:
                     network_properties=pb.AdminNetworkPropertiesMessage())))
             if nreply.WhichOneof("payload") == "admin_message":
                 info["network"] = spektra_map.network_to_dict(
-                    nreply.admin_message.network_properties, current_ip=self.host)
+                    nreply.admin_message.network_properties, current_ip=self.host,
+                    device_name=await self.read_device_name(),
+                    tls=getattr(self, "use_tls", False))
         except Exception:  # noqa: BLE001 — network read is best-effort
             pass
         return info
+
+    async def read_admin(self, target: str, command: str = "GET", **payload):
+        """Send an AdminMessage in the current protocol; returns the v2 reply."""
+        return await v2.request(self._require(),
+                                v2.admin(self._next_id(), command, target, **payload))
+
+    async def read_device_name(self) -> str:
+        """The controller's own name (DEVICE_NAME, up to 31 bytes on 1.6.3)."""
+        try:
+            r = await self.read_admin("DEVICE_NAME")
+            if r.WhichOneof("payload") == "admin_message":
+                return r.admin_message.data.string_data
+        except Exception:  # noqa: BLE001
+            pass
+        return ""
 
     def _load_template_edidio(self) -> dict:
         """Load the bundled controller-template eDIDIO skeleton (all UI-required
@@ -426,109 +501,198 @@ class SpektraController:
         "outputs": ("pull_outputs", spektra_map.outputs_to_message),
     }
 
-    async def build_push_messages(self, project, sections=("sequences", "themes")):
-        """Diff a project's config sections against the live device and build the
-        messages for only what changed. Returns (messages, summary_lines, is_dali).
-        Handles indexed sections (per-slot), per-profile Multi sections (inputs/
-        outputs), and logicActions (single multi). Both sides map through spektra_map,
-        so unchanged config compares equal and is skipped."""
+    async def identify(self) -> dict:
+        """Who is on the other end: every MAC it answers to (discovery and network
+        properties differ on an ADDICT: access point vs station), model and firmware.
+        SpektraPlus checks this before every push and pull (a controller reflashed
+        as another model would otherwise keep the old model in the project)."""
+        client = self._require()
+        macs = set()
+        info = {"firmware": "", "hardware": ""}
+        reply = await client.request(EdidioClient.create_diagnostic_message(
+            self._next_id(), DiagnosticMessageType.DIAGNOSTIC_SYSTEM_INFO))
+        which = reply.WhichOneof("payload")
+        if which and which.startswith("diag"):
+            diag = getattr(reply, which)
+            info["firmware"] = getattr(diag, "firmware", "") or ""
+            info["hardware"] = getattr(diag, "hardware", "") or ""
+        try:
+            nreply = await client.request(spektra_map._frame(
+                self._next_id(), admin_message=pb.AdminMessage(
+                    command=pb.AdminCommandType.GET,
+                    target=pb.AdminPropertyType.NETWORK_PROPERTIES,
+                    network_properties=pb.AdminNetworkPropertiesMessage())))
+            if nreply.WhichOneof("payload") == "admin_message":
+                mac = nreply.admin_message.network_properties.MAC
+                if mac:
+                    macs.add(_norm_mac(mac))
+        except Exception:  # noqa: BLE001 - ADDICT/older firmware: discovery still works
+            pass
+        found = self._resolve_mac()
+        if not found.startswith("PULLED:"):
+            macs.add(_norm_mac(found))
+        info["macs"] = sorted(macs)
+        return info
+
+    async def check_target(self, project, target_mac: str = "") -> tuple:
+        """Pick the project's controller that matches the connected device.
+        Returns (mac, warnings) or raises ValueError with the reason. A multi-
+        controller file pushes only the controller that is actually connected."""
+        ident = await self.identify()
+        live = set(ident["macs"])
+        file_macs = list(project.macs)
+        if target_mac:
+            mac = next((m for m in file_macs if _norm_mac(m) == _norm_mac(target_mac)), None)
+            if mac is None:
+                raise ValueError(f"{target_mac} is not a controller in this file "
+                                 f"({', '.join(file_macs)}).")
+        else:
+            matches = [m for m in file_macs if _norm_mac(m) in live]
+            if not matches:
+                raise ValueError(
+                    f"The connected controller ({', '.join(ident['macs']) or 'unknown MAC'}) "
+                    f"is not in this file ({', '.join(file_macs)}). Connect to the right "
+                    "controller, or pass target_mac to push that file entry to this one.")
+            mac = matches[0]
+        warnings = []
+        ed = project.edidio(mac)
+        f_hw, l_hw = (ed.get("hardwareVersion") or ""), ident["hardware"]
+        if f_hw and l_hw and f_hw.split("-")[0] != l_hw.split("-")[0]:
+            raise ValueError(
+                f"Model changed: the file has {f_hw.split('-')[0]}, the controller is "
+                f"{l_hw.split('-')[0]} (reflashed for another model?). Pull the controller "
+                "first and re-apply the changes, so slot counts match.")
+        f_fw = ed.get("firmwareVersion") or ""
+        if f_fw and ident["firmware"] and f_fw != ident["firmware"]:
+            warnings.append(f"firmware is now {ident['firmware']} (file says {f_fw}).")
+        return mac, warnings
+
+    @staticmethod
+    def _same(section: str, a, b) -> bool:
+        """Equal as SpektraPlus judges it: the canonical sync hash (ignores uuids,
+        display units, trailing zero channels, NO_COMMAND leftovers, ...)."""
+        from . import sync
+        return sync.hash_section(a, section) == sync.hash_section(b, section)
+
+    async def build_push_messages(self, project, sections=("sequences", "themes"),
+                                  target_mac: str = ""):
+        """Diff one controller of a project against the live device and build the
+        messages for only what changed. Returns (messages, summary_lines, is_dali, mac).
+
+        The controller is the file entry whose MAC matches the connected device (or
+        ``target_mac``); a model change refuses the push. Items compare by the sync
+        hash, so unchanged config is skipped. A DEVICE_SAVE ends every push: the
+        controller confirms the save only when it is complete, and SpektraPlus shows
+        Synced only after that ack."""
         from .spektra_file import _is_configured  # local import avoids a cycle
 
         self._require()
+        mac, warnings = await self.check_target(project, target_mac)
+        ed = project.edidio(mac)
         zones = await self.pull_zones()
         is_dali = any(z.get("protocol") == 0 for z in zones)
         list_count = None       # lazily fetched only if pushing lists
         meta = None             # lazily fetched only if pushing sensors
 
-        messages, summary = [], []
-        for _mac, ed in project.iter_edidios():
-            zones_written = False
-            restore_profile = None   # set if a sensor-clear switched the active profile
-            for section in sections:
-                if section in self._INDEXED_BUILDERS:
-                    before = len(messages)
-                    puller_name, builder = self._INDEXED_BUILDERS[section]
-                    if section == "lists":
-                        if list_count is None:
-                            list_count = (await self.read_system_counts())["lists"]
-                        live_list = await self.pull_lists(list_count)
-                    elif section == "zones":
-                        live_list = zones
-                    else:
-                        live_list = await getattr(self, puller_name)()
-                    live = {it["index"]: it for it in live_list}
-                    for item in ed.get(section) or []:
-                        if not _is_configured(section, item):
-                            continue
+        messages, summary = [], [f"note: {w}" for w in warnings]
+        zones_written = False
+        restore_profile = None   # set if a sensor-clear switched the active profile
+        for section in sections:
+            if section in self._INDEXED_BUILDERS:
+                before = len(messages)
+                puller_name, builder = self._INDEXED_BUILDERS[section]
+                if section == "lists":
+                    if list_count is None:
+                        list_count = (await self.read_system_counts())["lists"]
+                    live_list = await self.pull_lists(list_count)
+                elif section == "zones":
+                    live_list = zones
+                else:
+                    live_list = await getattr(self, puller_name)()
+                live = {it["index"]: it for it in live_list}
+                changed = []
+                for item in ed.get(section) or []:
+                    if not _is_configured(section, item):
+                        continue
+                    idx = item.get("index")
+                    if idx in live and self._same(section, [live[idx]], [item]):
+                        continue
+                    changed.append(item)
+                if section == "lists":
+                    # Writing list 0 erases every list's steps: rewrite the rest too.
+                    for item in spektra_map.lists_write_order(changed, live_list):
                         idx = item.get("index")
-                        if live.get(idx) == item:
-                            continue
-                        change = "add" if idx not in live else "update"
-                        messages.append(builder(item, self._next_id(), is_dali))
-                        summary.append(f'{change} {section}[{idx}] "{item.get("name", "")}"')
-                    if section == "zones" and len(messages) > before:
-                        zones_written = True   # zones are RAM-only until a SAVE
+                        why = ("update" if item in changed else
+                               "rewrite (list 0 write erases all list steps)")
+                        messages.extend(spektra_map.list_to_messages(item, self._next_id))
+                        summary.append(f'{why} lists[{idx}] "{item.get("name", "")}" '
+                                       f'({len(item.get("steps") or [])} steps)')
+                    continue
+                for item in changed:
+                    idx = item.get("index")
+                    change = "add" if idx not in live else "update"
+                    messages.append(builder(item, self._next_id(), is_dali))
+                    summary.append(f'{change} {section}[{idx}] "{item.get("name", "")}"')
+                if section == "zones" and len(messages) > before:
+                    zones_written = True   # zones are RAM-only until a SAVE
 
-                elif section in self._PROFILE_BUILDERS:
-                    puller_name, builder = self._PROFILE_BUILDERS[section]
-                    for p, prof in enumerate(ed.get("profiles") or []):
-                        file_items = prof.get(section) or []
-                        if not file_items:
-                            continue
-                        if await getattr(self, puller_name)(p) == file_items:
-                            continue
-                        messages.append(builder(p, file_items, self._next_id()))
-                        summary.append(f"update {section} profile {p} "
-                                       f"({len(file_items)} items)")
+            elif section in self._PROFILE_BUILDERS:
+                puller_name, builder = self._PROFILE_BUILDERS[section]
+                for p, prof in enumerate(ed.get("profiles") or []):
+                    file_items = prof.get(section) or []
+                    if not file_items:
+                        continue
+                    live_items = await getattr(self, puller_name)(p)
+                    if self._same(section, [live_items], [file_items]):
+                        continue
+                    messages.append(builder(p, file_items, self._next_id()))
+                    summary.append(f"update {section} profile {p} ({len(file_items)} items)")
 
-                elif section == "logicActions":
-                    file_logic = ed.get("logicActions") or []
-                    if file_logic and await self.pull_logic() != file_logic:
-                        messages.append(spektra_map.logic_to_message(
-                            file_logic, self._next_id()))
-                        summary.append(f"update logicActions ({len(file_logic)} items)")
+            elif section == "logicActions":
+                file_logic = ed.get("logicActions") or []
+                if file_logic and not self._same(section, await self.pull_logic(), file_logic):
+                    messages.append(spektra_map.logic_to_message(file_logic, self._next_id()))
+                    summary.append(f"update logicActions ({len(file_logic)} items)")
 
-                elif section == "sensors":
-                    if meta is None:
-                        meta = await self.read_system_counts()
-                    supports_coop = spektra_map.version_gte(
-                        meta["firmware"], spektra_map.COOP_GROUPING_FIRMWARE)
-                    active = meta["active"]
-                    for p, prof in enumerate(ed.get("profiles") or []):
-                        file_sensors = prof.get("sensors") or []
-                        if await self.pull_sensors(p) == file_sensors:
-                            continue
-                        if file_sensors:
-                            # Program: index 0 first (firmware treats it as a batch wipe).
-                            for s in sorted(file_sensors, key=lambda x: x["index"]):
-                                messages.append(spektra_map.sensor_to_message(
-                                    s, p, self._next_id(), supports_coop))
-                            summary.append(f"update sensors profile {p} "
-                                           f"({len(file_sensors)} items)")
-                        else:
-                            # Clear: RESET is active-profile scoped, and does NOT save
-                            # on its own -> switch profile, RESET, DEVICE_SAVE.
-                            if p != active:
-                                messages.append(spektra_map.change_profile_message(
-                                    self._next_id(), p))
-                                restore_profile = active
-                            messages.append(spektra_map.reset_sensors_message(self._next_id()))
-                            messages.append(spektra_map.device_save_message(self._next_id()))
-                            summary.append(f"clear sensors profile {p}")
+            elif section == "sensors":
+                if meta is None:
+                    meta = await self.read_system_counts()
+                supports_coop = spektra_map.version_gte(
+                    meta["firmware"], spektra_map.COOP_GROUPING_FIRMWARE)
+                active = meta["active"]
+                for p, prof in enumerate(ed.get("profiles") or []):
+                    file_sensors = prof.get("sensors") or []
+                    if self._same(section, [await self.pull_sensors(p)], [file_sensors]):
+                        continue
+                    if file_sensors:
+                        # Program: index 0 first (firmware treats it as a batch wipe).
+                        for s in sorted(file_sensors, key=lambda x: x["index"]):
+                            messages.append(spektra_map.sensor_to_message(
+                                s, p, self._next_id(), supports_coop))
+                        summary.append(f"update sensors profile {p} ({len(file_sensors)} items)")
+                    else:
+                        # Clear: RESET is active-profile scoped and does not save on
+                        # its own -> switch profile, RESET, DEVICE_SAVE.
+                        if p != active:
+                            messages.append(spektra_map.change_profile_message(
+                                self._next_id(), p))
+                            restore_profile = active
+                        messages.append(spektra_map.reset_sensors_message(self._next_id()))
+                        messages.append(spektra_map.device_save_message(self._next_id()))
+                        summary.append(f"clear sensors profile {p}")
 
-                elif section == "daliInputs":
-                    for p, prof in enumerate(ed.get("profiles") or []):
-                        file_di = prof.get("daliInputs") or []
-                        if not file_di:
-                            continue
-                        if await self.pull_daliinputs(p) == file_di:
-                            continue
-                        messages.append(spektra_map.daliinputs_to_message(
-                            p, file_di, self._next_id()))
-                        summary.append(f"update daliInputs profile {p} "
-                                       f"({len(file_di)} items)")
+            elif section == "daliInputs":
+                for p, prof in enumerate(ed.get("profiles") or []):
+                    file_di = prof.get("daliInputs") or []
+                    if not file_di:
+                        continue
+                    if self._same(section, [await self.pull_daliinputs(p)], [file_di]):
+                        continue
+                    messages.append(spektra_map.daliinputs_to_message(p, file_di, self._next_id()))
+                    summary.append(f"update daliInputs profile {p} ({len(file_di)} items)")
 
-            # Persist RAM-only writes and undo any profile switch (per eDIDIO).
+        if any(not m.startswith("note:") for m in summary):
+            # Persist RAM-only writes, undo any profile switch, then save everything.
             if zones_written:
                 messages.append(spektra_map.zone_save_message(self._next_id()))
                 summary.append("save zones to flash")
@@ -536,9 +700,10 @@ class SpektraController:
                 messages.append(spektra_map.change_profile_message(
                     self._next_id(), restore_profile))
                 summary.append(f"restore active profile {restore_profile}")
-        return messages, summary, is_dali
+            messages.append(spektra_map.device_save_message(self._next_id()))
+            summary.append("save configuration (DEVICE_SAVE)")
+        return messages, summary, is_dali, mac
 
-    # --- device clock ---
     async def get_device_time(self) -> dict:
         """Read the controller's RTC. Returns the device datetime plus the drift
         against this computer's local clock (so the user can decide to sync)."""
@@ -1004,6 +1169,10 @@ class SpektraController:
 
 
 _ACK_NAMES = {v.number: v.name for v in pb.AckMessageType.DESCRIPTOR.values}
+
+
+def _norm_mac(mac: str) -> str:
+    return (mac or "").replace("-", ":").upper()
 
 
 def _alarm_summary(a) -> dict:

@@ -22,7 +22,8 @@ _NESTED = {"duration", "timeUnit", "light_state", "running_flag", "enable_flag"}
 _TYPE_TRANSIENT = {
     "lists": {"name", "totalStepCount", "scheduledDates", "loop_on_startup"},
     "schedules": {"name", "yearly"},
-    "sequences": {"presetSequenceID", "fadeTimeUnit", "scheduledDates"},
+    # fadeTimeUnit is NOT transient: _canon_fade_time folds it into fadeTime (ms).
+    "sequences": {"presetSequenceID", "scheduledDates"},
     "themes": {"scheduledDates"},
     "zones": {"alias", "daligroupoffset", "daligrouping", "channelTypes"},
     "logicActions": {"name", "isEnabled"},
@@ -31,6 +32,7 @@ _TYPE_TRANSIENT = {
     "sensors": {"name", "prgBtnOne", "prgBtnTwo"},
     "daliInputs": {"name", "isActive"},
     "burnIns": {"name", "remaining", "enabled"},
+    "controlTranslations": {"name"},
 }
 
 PROFILE_BASED = {"inputs", "outputs", "sensors", "daliInputs"}
@@ -40,7 +42,36 @@ SYNC_SECTIONS = ("sequences", "themes", "zones", "schedules", "logicActions",
 
 _MIN_STEP_MS = 50
 _MIN_ZONE_SCALE = 0.1
-_MAX_TITLE = 27
+# Controller title storage in UTF-8 bytes: a sequence keeps 23, a theme 27. The
+# wire allows 27 bytes; a longer title fails to decode and the whole write is
+# refused (DECODE_FAILED).
+SEQUENCE_TITLE_MAX_BYTES = 23
+THEME_TITLE_MAX_BYTES = 27
+NO_COMMAND = 254
+_MS_PER_TIME_UNIT = {0: 1, 1: 1000, 2: 60000, 3: 3600000}
+_DMX_MIN, _DMX_MAX = 1, 512
+
+
+def truncate_utf8(value: str, max_bytes: int) -> str:
+    """Longest code-point prefix of ``value`` whose UTF-8 fits ``max_bytes``."""
+    if len(value.encode("utf-8")) <= max_bytes:
+        return value
+    out, used = [], 0
+    for ch in value:
+        size = len(ch.encode("utf-8"))
+        if used + size > max_bytes:
+            break
+        out.append(ch)
+        used += size
+    return "".join(out)
+
+
+def device_sequence_title(name: str) -> str:
+    return truncate_utf8(name, SEQUENCE_TITLE_MAX_BYTES)
+
+
+def device_theme_title(name: str) -> str:
+    return truncate_utf8(name, THEME_TITLE_MAX_BYTES)
 
 
 # --- pipeline steps ---------------------------------------------------------
@@ -77,6 +108,56 @@ def _trim_channels(data):
     return data
 
 
+def _is_num(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _js_round(x: float) -> int:
+    """JS Math.round (half rounds up, toward +inf), not Python's banker's round."""
+    import math
+    return math.floor(x + 0.5)
+
+
+def _canon_fade_time(data):
+    """Fade time as SpektraPlus hashes it: fadeTime -> ms at 10 ms resolution,
+    fadeTimeUnit dropped (only on the item that carries the unit)."""
+    if isinstance(data, list):
+        return [_canon_fade_time(x) for x in data]
+    if not isinstance(data, dict) or "fadeTimeUnit" not in data:
+        return data
+    rest = {k: v for k, v in data.items() if k != "fadeTimeUnit"}
+    factor = _MS_PER_TIME_UNIT.get(data["fadeTimeUnit"]) if _is_num(data["fadeTimeUnit"]) else None
+    if _is_num(rest.get("fadeTime")) and factor is not None:
+        rest["fadeTime"] = _js_round(rest["fadeTime"] * factor / 10) * 10
+    return rest
+
+
+def _canon_no_command(data):
+    """A NO_COMMAND trigger has no target (as the controller reads it back)."""
+    if isinstance(data, list):
+        return [_canon_no_command(x) for x in data]
+    if not isinstance(data, dict):
+        return data
+    if data.get("commandtype") == NO_COMMAND and not isinstance(data.get("commandtype"), bool):
+        return {**data, "zone": 0, "linemask": 0, "target": 0, "value": 0, "query": 0}
+    return {k: _canon_no_command(v) for k, v in data.items()}
+
+
+def _canon_dmx_start(data):
+    """DMX start address clamped to 1-512, as the controller stores it."""
+    if isinstance(data, list):
+        return [_canon_dmx_start(x) for x in data]
+    if not isinstance(data, dict):
+        return data
+    out = {k: _canon_dmx_start(v) for k, v in data.items()}
+    if _is_num(out.get("DMXStartAddress")):
+        start = min(max(out["DMXStartAddress"], _DMX_MIN), _DMX_MAX)
+        out["DMXStartAddress"] = start
+        if _is_num(out.get("DMXEndAddress")):
+            out["DMXEndAddress"] = start + max(out["DMXEndAddress"] - start, 0)
+    return out
+
+
 def _clamp_step(value, unit):
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         return None
@@ -100,14 +181,23 @@ def _canon_sequences(data):
                 c = _clamp_step(out[tv], out[tu])
                 if c:
                     out[tv], out[tu] = c
-        return _canon_title(out, "Sequence")
+        return out
     return data
 
 
-def _canon_title(obj, prefix):
-    if isinstance(obj, dict) and isinstance(obj.get("name"), str) \
-            and isinstance(obj.get("index"), int) and not isinstance(obj["index"], bool):
-        truncated = obj["name"][:_MAX_TITLE]
+def _canon_seq_title(data):
+    if isinstance(data, list):
+        return [_canon_seq_title(x) for x in data]
+    if isinstance(data, dict):
+        return _canon_title({k: _canon_seq_title(v) for k, v in data.items()},
+                            "Sequence", device_sequence_title)
+    return data
+
+
+def _canon_title(obj, prefix, to_device):
+    # JS `typeof index === 'number'` also accepts floats.
+    if isinstance(obj, dict) and isinstance(obj.get("name"), str) and _is_num(obj.get("index")):
+        truncated = to_device(obj["name"])
         obj = dict(obj)
         obj["name"] = truncated if truncated else f"{prefix} {obj['index'] + 1}"
     return obj
@@ -117,7 +207,8 @@ def _canon_themes(data):
     if isinstance(data, list):
         return [_canon_themes(x) for x in data]
     if isinstance(data, dict):
-        return _canon_title({k: _canon_themes(v) for k, v in data.items()}, "Theme")
+        return _canon_title({k: _canon_themes(v) for k, v in data.items()}, "Theme",
+                            device_theme_title)
     return data
 
 
@@ -129,7 +220,7 @@ def _canon_zones(data):
         sf = out.get("scaleFactor")
         if isinstance(sf, (int, float)) and not isinstance(sf, bool):
             clamped = sf if _MIN_ZONE_SCALE <= sf <= 1 else 1
-            out["scaleFactor"] = round(clamped * 1000) / 1000
+            out["scaleFactor"] = _js_round(clamped * 1000) / 1000
         return out
     return data
 
@@ -148,17 +239,25 @@ def _canon_sensors(data):
     return data
 
 
+# Per-type canonicalisers, applied in order (as SpektraPlus applies them).
 _CANONICALIZERS = {
-    "sequences": _canon_sequences, "themes": _canon_themes,
-    "zones": _canon_zones, "sensors": _canon_sensors,
+    "sequences": [_canon_fade_time, _canon_sequences, _canon_seq_title],
+    "themes": [_canon_themes],
+    "zones": [_canon_zones],
+    "controlTranslations": [_canon_dmx_start],
+    "sensors": [_canon_sensors, _canon_no_command],
+    "inputs": [_canon_no_command],
+    "daliInputs": [_canon_no_command],
+    "lists": [_canon_no_command],
+    "schedules": [_canon_no_command],
+    "logicActions": [_canon_no_command],
 }
 
 
 def _sort_by_index(arr):
     if len(arr) < 2:
         return arr
-    if all(isinstance(x, dict) and isinstance(x.get("index"), int)
-           and not isinstance(x["index"], bool) for x in arr):
+    if all(isinstance(x, dict) and _is_num(x.get("index")) for x in arr):
         return sorted(arr, key=lambda x: x["index"])
     return arr
 
@@ -175,8 +274,7 @@ def canonicalize(data, data_type):
     """Full device-context-free normalisation (mirrors canonicalizeForSync)."""
     cleaned = _strip(data, data_type)
     cleaned = _trim_channels(cleaned)
-    fn = _CANONICALIZERS.get(data_type)
-    if fn:
+    for fn in _CANONICALIZERS.get(data_type, ()):
         cleaned = fn(cleaned)
     return _canon_order(cleaned, data_type)
 
@@ -273,6 +371,15 @@ def mark_synced(project, mac: str, sections: list):
     sd.setdefault("syncQueue", [])
     now = _now_ms()
     ed = project.edidio(mac)
+    # SpektraPlus >= 1.3.0 also keeps per-item baselines (itemSyncStates, key
+    # "MAC:dataType:itemId"). After we rewrite a section they are stale and the app
+    # would flag the items as conflicts. Drop them for the touched sections: an item
+    # with no baseline is not judged, and the app re-seeds baselines on its next read.
+    items = sd.get("itemSyncStates")
+    if isinstance(items, dict):
+        prefixes = tuple(f"{mac}:{section}:" for section in sections)
+        for key in [k for k in items if k.startswith(prefixes)]:
+            del items[key]
     for section in sections:
         h = hash_section(section_value(ed, section), section)
         states[f"{mac}:{section}"] = {

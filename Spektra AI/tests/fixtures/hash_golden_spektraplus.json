@@ -1,0 +1,267 @@
+[
+ {
+  "type": "sequences",
+  "data": [
+   {
+    "index": 2,
+    "name": "Asthma and Allergy Awareness",
+    "fadeTime": 1,
+    "fadeTimeUnit": 1,
+    "timePerColour": 0,
+    "timePerColourUnit": 1,
+    "timePerStep": 20,
+    "timePerStepUnit": 0,
+    "uuid": "x",
+    "presetSequenceID": 3,
+    "colours": [
+     {
+      "channelValues": [
+       255,
+       0,
+       0,
+       0,
+       0
+      ],
+      "uuid": "c"
+     }
+    ],
+    "direction": 0,
+    "error": ""
+   },
+   {
+    "index": 0,
+    "name": "Café au lait ☕ très spécial",
+    "fadeTime": 1005,
+    "fadeTimeUnit": 0,
+    "timePerColour": 2,
+    "timePerColourUnit": 1,
+    "timePerStep": 1,
+    "timePerStepUnit": 2,
+    "colours": []
+   },
+   {
+    "index": 1,
+    "name": "",
+    "fadeTime": 0.015,
+    "fadeTimeUnit": 1,
+    "colours": [
+     {
+      "channelValues": [
+       0,
+       0,
+       0
+      ]
+     }
+    ]
+   }
+  ],
+  "hash": "3e8244b8b61363eaf2acc71b3323e33170036ebe5edc69a0880d54e6c17f8cea"
+ },
+ {
+  "type": "themes",
+  "data": [
+   {
+    "index": 0,
+    "name": "Greater Western Sydney Giants FC",
+    "colours": [
+     {
+      "channelValues": [
+       1,
+       2,
+       3,
+       0
+      ]
+     }
+    ]
+   },
+   {
+    "index": 1,
+    "name": "",
+    "colours": []
+   }
+  ],
+  "hash": "65ac89ebcdd1bff166c284c90dca1b5642a36c1df114ffafa69fa28f77edac5d"
+ },
+ {
+  "type": "zones",
+  "data": [
+   {
+    "index": 0,
+    "name": "Z",
+    "scaleFactor": 0.12345,
+    "alias": "a",
+    "channelTypes": [
+     1
+    ]
+   },
+   {
+    "index": 1,
+    "scaleFactor": 0.0625
+   },
+   {
+    "index": 2,
+    "scaleFactor": 2.5
+   }
+  ],
+  "hash": "dad110c9907e8089f41952950367ec1d98dadb28b70648f948855539b0225255"
+ },
+ {
+  "type": "schedules",
+  "data": [
+   {
+    "index": 0,
+    "name": "S",
+    "enabled": true,
+    "startEvent": {
+     "command": {
+      "commandtype": 254,
+      "zone": 3,
+      "linemask": 2,
+      "target": 9,
+      "value": 5,
+      "query": 1
+     },
+     "time": "07:00"
+    },
+    "endEvent": {
+     "command": {
+      "commandtype": 12,
+      "zone": 255,
+      "linemask": 0,
+      "target": 1,
+      "value": 2,
+      "query": 0
+     }
+    }
+   }
+  ],
+  "hash": "ed31de75d096e688f60f295abe9cc694a704d1e0133265d73662835207a38c77"
+ },
+ {
+  "type": "inputs",
+  "data": [
+   [
+    {
+     "index": 1,
+     "name": "In2",
+     "type": 0,
+     "shortLowAction": {
+      "commandtype": 254,
+      "zone": 1,
+      "linemask": 3,
+      "target": 4,
+      "value": 5,
+      "query": 6
+     }
+    },
+    {
+     "index": 0,
+     "type": 2,
+     "shortLowAction": {
+      "commandtype": 3,
+      "zone": 0,
+      "linemask": 1,
+      "target": 65,
+      "value": 254,
+      "query": 0
+     }
+    }
+   ],
+   []
+  ],
+  "hash": "092028c7c541e6dc66c151cbab6ae572c5d51ff89a70eb9081498862b24e42c1"
+ },
+ {
+  "type": "lists",
+  "data": [
+   {
+    "index": 0,
+    "name": "L",
+    "totalStepCount": 2,
+    "steps": [
+     {
+      "index": 0,
+      "duration": 5,
+      "timeUnit": "Seconds",
+      "time_until_next": 5,
+      "action": {
+       "commandtype": 254,
+       "zone": 0,
+       "linemask": 9,
+       "target": 2,
+       "value": 0,
+       "query": 0
+      }
+     }
+    ]
+   }
+  ],
+  "hash": "18552ad30bf393a7bf14e375aaae5de9b91d73552cf457e6a1c76d0e1aa681e7"
+ },
+ {
+  "type": "logicActions",
+  "data": [
+   {
+    "index": 0,
+    "name": "Lg",
+    "isEnabled": true,
+    "comparisonObject": {
+     "commandtype": 3,
+     "zone": 0,
+     "linemask": 1,
+     "target": 64,
+     "value": 0,
+     "query": 0
+    },
+    "trueAction": {
+     "commandtype": 254,
+     "zone": 7,
+     "linemask": 7,
+     "target": 7,
+     "value": 7,
+     "query": 7
+    }
+   }
+  ],
+  "hash": "cdf93b0b44afe56d486af6f7793940f5f3c412470cc1f0ddcc4013861bc02555"
+ },
+ {
+  "type": "sensors",
+  "data": [
+   [
+    {
+     "index": 0,
+     "name": "S",
+     "prgBtnOne": 1,
+     "coopGroup": null,
+     "occupancyAction": {
+      "commandtype": 254,
+      "zone": 1,
+      "linemask": 1,
+      "target": 1,
+      "value": 1,
+      "query": 1
+     }
+    }
+   ]
+  ],
+  "hash": "0e8d21b7858ca81204a4176037567c05127b67594f99461b93de2607b75c7cbc"
+ },
+ {
+  "type": "controlTranslations",
+  "data": [
+   {
+    "index": 0,
+    "name": "T",
+    "DMXStartAddress": 0,
+    "DMXEndAddress": 10
+   },
+   {
+    "index": 1,
+    "DMXStartAddress": 600,
+    "DMXEndAddress": 4
+   }
+  ],
+  "hash": "d312e2968af653c19e0297fb541205f77c74af39634698a7e8888c2d2b90edc3"
+ }
+]

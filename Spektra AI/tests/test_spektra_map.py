@@ -237,8 +237,50 @@ def test_list_roundtrips_through_protobuf():
                       "action": {"commandtype": 9, "zone": 0, "linemask": 1,
                                  "target": 2, "value": 254, "query": 0}}]}
     lm = _decode(m.list_to_message(lst, message_id=1)).list
-    assert lm.list_index == 3 and lm.list_state == 1 and lm.total_step_count == 1
+    # total_step_count is read-only on the device (SpektraPlus does not send it).
+    assert lm.list_index == 3 and lm.list_state == 1 and len(lm.step) == 1
     assert lm.step[0].time_seconds == 5 and lm.step[0].action.target_index == 2
+
+
+def _step(n):
+    return {"time_until_next": n, "action": {"commandtype": 11, "zone": 0, "linemask": 0,
+                                             "target": n % 32, "value": 0, "query": 0}}
+
+
+def test_long_list_splits_into_extended_blocks():
+    from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+    ids = iter(range(1, 100))
+    frames = m.list_to_messages({"index": 2, "state": 2, "isShow": True,
+                                 "steps": [_step(i) for i in range(255)]}, lambda: next(ids))
+    assert len(frames) == 8                      # 32 + 7 blocks (last has 31)
+    base = _decode(frames[0]).list
+    assert base.list_state == 0x12 and len(base.step) == 32
+    last = v2pb.EdidioMessage.FromString(frames[-1][3:]).list_extended
+    assert last.step_index_offset == 224 and len(last.step) == 31
+    assert last.step[0].step_index == 224
+
+
+def test_list_over_255_steps_refused():
+    import pytest
+    with pytest.raises(ValueError):
+        m.list_to_messages({"index": 0, "steps": [_step(0)] * 256}, lambda: 1)
+
+
+def test_writing_list_0_rewrites_every_list_with_steps():
+    live = [{"index": 0, "steps": [_step(1)]}, {"index": 1, "steps": []},
+            {"index": 2, "steps": [_step(2)]}, {"index": 5, "steps": [_step(3)]}]
+    changed = [{"index": 0, "steps": [_step(9)]}]
+    order = m.lists_write_order(changed, live)
+    assert [x["index"] for x in order] == [0, 2, 5]
+    assert order[0] is changed[0]
+    # Not touching list 0 writes only what changed.
+    assert [x["index"] for x in m.lists_write_order([live[3]], live)] == [5]
+
+
+def test_list_state_read_like_spektraplus():
+    from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+    d = m.list_to_dict(v2pb.ListMessage(list_index=1, list_state=0x12))
+    assert d["state"] == 2 and d["isShow"] is True and d["loop_on_startup"] is False
 
 
 # --- sensors + DALI inputs ---

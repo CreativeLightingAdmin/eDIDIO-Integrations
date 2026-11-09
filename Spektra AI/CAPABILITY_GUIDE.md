@@ -4,9 +4,11 @@ Reference for authoring SpektraPlus **sequences**, **themes** and **schedules (a
 
 ## Limits
 
-- Sequences: index 0-143; up to 20 colours; title <= 28 chars; min 50 ms per step
-- Themes: index 0-15; up to 20 colours; title <= 28 chars
+- Sequences: index 0-143; up to 20 colours; title kept to 23 UTF-8 bytes (longer is cut on push); min 50 ms per step
+- Themes: index 0-15; up to 20 colours; title kept to 27 UTF-8 bytes
 - Schedules (alarms): index 0-8 (user)
+- Lists: up to 255 steps; each step waits 0-65535 s before the next. Writing List 1 erases every list (Spektra AI rewrites the others for you)
+- Firmware 1.6.3 refuses values it cannot store (INVALID_PARAMS + reason) instead of truncating them
 - Zones: 0-9 (pre-configured; read details with `get_zone_details`)
 - Colour channel values: 0-255
 
@@ -86,6 +88,14 @@ The device also reports exact counts via `device_capabilities`.
 - `SLOTS_FULL` = 12
 - `UNAUTHORISED` = 13
 - `DEPRECATED` = 16
+
+## Commands (inputs, list steps, logic, run_command)
+
+Every trigger slot takes a command JSON: `{"do": <action>, ...}`. Lines are physical 1-8; every index (list, input, output, sensor, schedule, logic, sequence, theme, profile, zone) is 0-based - List 1 is `list: 0`. DALI target: `address` 0-63, `group` 0-15 or `broadcast: true`; add `override: true` for the sensor-overriding variant. Call the `command_reference` tool for the fields of each action.
+
+Actions: `burnin_start`, `burnin_stop`, `dali_arc`, `dali_fade_down`, `dali_fade_long_press`, `dali_fade_up`, `dali_fade_up_with_min`, `dali_max`, `dali_min`, `dali_min_max_toggle`, `dali_off`, `dali_scene`, `dali_step_down`, `dali_step_up`, `dali_toggle`, `device_save`, `dmx`, `dmx_broadcast`, `dmx_zone_fade_down`, `dmx_zone_fade_up`, `input_disable`, `input_enable`, `list_start`, `list_start_looping`, `list_stop`, `logic`, `none`, `output_high`, `output_low`, `output_toggle`, `output_trigger`, `preset_code`, `profile`, `schedule_disable`, `schedule_enable`, `sensor_disable`, `sensor_mute`, `sensor_override`, `sensor_resume`, `sensor_unmute`, `sequence`, `sequence_stop`, `spektra_intensity`, `spektra_pause`, `spektra_resume`, `spektra_schedule`, `theme`, `user_level_recall`
+
+Latching inputs (PE cell, key switch, fire relay): `on_low` runs when the contact closes to ground, `on_high` when it opens. Momentary inputs: `on_low` = short press, `on_high` = long press (repeats while held).
 
 ## How to author
 

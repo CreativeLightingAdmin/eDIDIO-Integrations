@@ -341,7 +341,12 @@ async def confirm(token: str) -> str:
     except Exception as err:  # noqa: BLE001
         return f"Error writing to controller: {err}"
     ok = all(a.get("ok") for a in acks)
+    failed = [f"#{i + 1}: {a.get('code')}" + (f" ({a['reason']})" if a.get("reason") else "")
+              for i, a in enumerate(acks) if not a.get("ok")]
     note = ""
+    if failed:
+        note = (" Refused by the controller: " + ", ".join(failed)
+                + ". Nothing was marked synced.")
     if ok and pending.get("on_success"):
         try:
             note = pending["on_success"]() or ""
@@ -486,7 +491,8 @@ async def pull_spektra_file(host: str, out_path: str, port: int = 23,
 @server.tool()
 async def preview_push_spektra(path: str, host: str = "", port: int = 23,
                               use_tls: bool = False,
-                              sections: str = "sequences,themes") -> str:
+                              sections: str = "sequences,themes",
+                              target_mac: str = "") -> str:
     """Preview pushing a .spektra FILE's config to a controller (file -> device).
     Connects to `host` if given (else uses the current connection), diffs the file's
     selected `sections` against the live device, and returns a preview of only the
@@ -498,34 +504,43 @@ async def preview_push_spektra(path: str, host: str = "", port: int = 23,
     inputs, outputs, logicActions, lists, sensors, daliInputs. Inputs/outputs/sensors/
     daliInputs write per profile (whole profile if anything differs); logicActions
     writes all logic together. (Zones change electrical/patch config — include them
-    deliberately. Clearing ALL sensors from a profile isn't supported yet.)"""
+    deliberately.)
+
+    Only the file's controller whose MAC matches the connected device is pushed
+    (pass `target_mac` to push a different file entry to this device); a changed
+    model (e.g. 4-pole reflashed as 6-pole) refuses the push. Every push ends with a
+    DEVICE_SAVE, and the file is marked SYNCED only when every write AND the save
+    were acknowledged. A refused value comes back with the controller's reason."""
     from .spektra_file import SpektraFileError, load_spektra
     try:
         proj = load_spektra(path)
         if host and not (_controller.connected and _controller.host == host):
             await _controller.connect(host, port, use_tls)
         secs = tuple(s.strip() for s in sections.split(",") if s.strip())
-        messages, summary, is_dali = await _controller.build_push_messages(proj, secs)
+        messages, summary, is_dali, mac = await _controller.build_push_messages(
+            proj, secs, target_mac)
     except SpektraFileError as err:
         return f"Error: {err}"
+    except ValueError as err:
+        return f"Refused: {err}"
     except Exception as err:  # noqa: BLE001
         return f"Error building push: {err}"
     if not messages:
-        return "Nothing to push: the device already matches the file for those sections."
+        return (f"Nothing to push: {mac} already matches the file for those sections."
+                + "".join(f"\n  {s}" for s in summary))
 
     def _on_success():
-        # After a successful push the device matches the file for these sections;
-        # record them SYNCED in the file's v3 syncData ledger and save.
-        for mac in proj.macs:
-            sync.mark_synced(proj, mac, list(secs))
+        # Every write and the final DEVICE_SAVE were acknowledged: this controller
+        # matches the file for these sections. Record them SYNCED and save.
+        sync.mark_synced(proj, mac, list(secs))
         proj.save(path)
-        return f" Sync ledger updated and saved to {path}."
+        return f" Sync ledger updated for {mac} and saved to {path}."
 
     token = _new_token(messages, "\n".join(summary), on_success=_on_success)
     dev = "DALI (values capped to 254)" if is_dali else "DMX"
     body = "\n".join(f"  - {s}" for s in summary)
-    return (f"PREVIEW - would write {len(messages)} item(s) to {_controller.host} "
-            f"[{dev}] (nothing written yet):\n{body}\n\n"
+    return (f"PREVIEW - would write {len(messages)} message(s) to {_controller.host} "
+            f"(file controller {mac}) [{dev}] (nothing written yet):\n{body}\n\n"
             f'Call confirm(token="{token}") to write this to the controller.')
 
 
@@ -901,6 +916,10 @@ async def dali_recall_scene(line: int, scene: int, group: int = -1,
     except Exception as err:  # noqa: BLE001
         return f"Error: {err}"
     return f"Recalled scene {scene} on {target} (line {line})."
+
+
+# Live operations, diagnostics, settings and list/IO/logic authoring.
+from . import tools_live  # noqa: E402,F401  (registers its tools on `server`)
 
 
 def main():

@@ -152,10 +152,14 @@ def build_guide() -> str:
 
     parts.append("## Limits\n")
     parts.append(
-        "- Sequences: index 0-143; up to 20 colours; title <= 28 chars; "
-        "min 50 ms per step\n"
-        "- Themes: index 0-15; up to 20 colours; title <= 28 chars\n"
+        "- Sequences: index 0-143; up to 20 colours; title kept to 23 UTF-8 bytes "
+        "(longer is cut on push); min 50 ms per step\n"
+        "- Themes: index 0-15; up to 20 colours; title kept to 27 UTF-8 bytes\n"
         "- Schedules (alarms): index 0-8 (user)\n"
+        "- Lists: up to 255 steps; each step waits 0-65535 s before the next. Writing "
+        "List 1 erases every list (Spektra AI rewrites the others for you)\n"
+        "- Firmware 1.6.3 refuses values it cannot store (INVALID_PARAMS + reason) "
+        "instead of truncating them\n"
         "- Zones: 0-9 (pre-configured; read details with `get_zone_details`)\n"
         "- Colour channel values: 0-255\n\n"
         "The device also reports exact counts via `device_capabilities`.\n"
@@ -192,6 +196,20 @@ def build_guide() -> str:
         subset={"SUCCESS", "INDEX_OUT_OF_BOUNDS", "INVALID_PARAMS", "SLOTS_FULL",
                 "DEPRECATED", "UNAUTHORISED", "DECODE_FAILED"}))
 
+    parts.append("## Commands (inputs, list steps, logic, run_command)\n")
+    from .commands import ACTIONS
+    parts.append(
+        'Every trigger slot takes a command JSON: `{"do": <action>, ...}`. Lines are '
+        "physical 1-8; every index (list, input, output, sensor, schedule, logic, "
+        "sequence, theme, profile, zone) is 0-based - List 1 is `list: 0`. DALI "
+        "target: `address` 0-63, `group` 0-15 or `broadcast: true`; add "
+        "`override: true` for the sensor-overriding variant. Call the "
+        "`command_reference` tool for the fields of each action.\n")
+    parts.append("Actions: " + ", ".join(f"`{a}`" for a in ACTIONS) + "\n")
+    parts.append(
+        "Latching inputs (PE cell, key switch, fire relay): `on_low` runs when the "
+        "contact closes to ground, `on_high` when it opens. Momentary inputs: "
+        "`on_low` = short press, `on_high` = long press (repeats while held).\n")
     parts.append(NOTES)
     guide = "\n".join(parts)
     # Normalise fancy dashes/bullets to ASCII so the guide renders cleanly in any
@@ -205,7 +223,7 @@ def build_guide() -> str:
 def main():
     import os
     out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "CAPABILITY_GUIDE.md")
-    with open(out, "w", encoding="utf-8") as fh:
+    with open(out, "w", encoding="utf-8", newline="\n") as fh:
         fh.write(build_guide())
     print(f"Wrote {out}")
 
