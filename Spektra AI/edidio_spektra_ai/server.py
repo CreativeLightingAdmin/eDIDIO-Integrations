@@ -333,6 +333,12 @@ async def confirm(token: str) -> str:
     pending = _pending.pop(token, None)
     if pending is None:
         return "Unknown or already-used token. Generate a fresh preview first."
+    # Special action: a multi-step job (e.g. change line types + reboot + reconnect).
+    if pending.get("runner"):
+        try:
+            return await pending["runner"]()
+        except Exception as err:  # noqa: BLE001
+            return f"Error: {err}"
     # Special action: DALI commissioning runs a multi-step addressing loop.
     if pending.get("dali_commission"):
         try:

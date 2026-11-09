@@ -914,7 +914,9 @@ class SpektraController:
                               poll: float = 3.0) -> bool:
         """Wait out the pre-power-cycle idle, then reconnect once the device is back.
         Returns True if reconnected within the budget (mirrors deviceReboot.ts)."""
-        host, port, tls = self.host, (self._client.port if self._client else 23), False
+        host = self.host
+        port = getattr(self, "port", None) or (self._client.port if self._client else 23)
+        tls = getattr(self, "use_tls", False)   # reconnect the way we were connected
         try:
             await self._client.disconnect()
         except Exception:  # noqa: BLE001

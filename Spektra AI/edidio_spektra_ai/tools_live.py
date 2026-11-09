@@ -904,3 +904,386 @@ async def sd_search(folder: str, text: str, files: int = 5, max_lines: int = 60)
             f"{len(hits)} line(s)")
     return head + ("\n" + "\n".join(hits[-max_lines:]) if hits else ".") + (
         f"\n(showing the last {max_lines})" if len(hits) > max_lines else "")
+
+
+# --- DALI-2 control devices and sensors ---------------------------------------------
+
+@server.tool()
+async def dali2_scan(line: int, addresses: str = "0-63") -> str:
+    """Find DALI-2 control devices (sensors, push buttons, rotaries) on a line - they
+    use their own 24-bit address space, separate from the lights. Read-only."""
+    from . import dali24
+    from .server import _parse_addresses
+    try:
+        _controller._require()
+        found = await dali24.scan(_controller, line, _parse_addresses(addresses))
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if not found:
+        return f"No DALI-2 control devices answered on line {line}."
+    return "\n".join([f"{len(found)} DALI-2 device(s) on line {line}:"] + [
+        f"  address {d['address']}: {d['instances']} instance(s) (dali2_device for detail)"
+        for d in found])
+
+
+@server.tool()
+async def dali2_device(line: int, address: int) -> str:
+    """Everything about one DALI-2 control device: version, device groups, and per
+    instance its type (push button / rotary / motion / light), enabled, errors,
+    event scheme and filter, and the live value (occupied/vacant, light level).
+    Read-only."""
+    from . import dali24
+    try:
+        _controller._require()
+        dev = await dali24.probe(_controller, line, address)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return dali24.describe(dev) if dev else f"Nothing answered at line {line} address {address}."
+
+
+def _describe_sensor(s: dict) -> str:
+    tgt = commands._dali_tgt(s.get("controlGroup", 0))
+    lines = commands._lines(s.get("controlLineMask", 0)) or "no line"
+    if s.get("motionOnly"):
+        mode = "motion only"
+    else:
+        mode = (f"daylight harvesting to {s.get('setPoint')} "
+                f"(seeded from address {s.get('addressQuery')})")
+    coop = ""
+    if s.get("coopGroup"):
+        role = "Leader" if s.get("coopLeader") else "Follower"
+        coop = f", co-op group {s['coopGroup']} {role}"
+    return (f"  Sensor {s['index'] + 1} (index {s['index']}): DALI-2 line {s.get('line')} "
+            f"address {s.get('address')} -> controls {tgt} {lines}; {mode}; occupied "
+            f"{s.get('inactivityTimer')} min, warning {s.get('warningTimer')} s, dead time "
+            f"{s.get('disableTimer')} s{coop}\n"
+            f"      detect -> {commands.describe(s.get('detectionTrigger'))}; warning -> "
+            f"{commands.describe(s.get('warningTrigger'))}; idle -> "
+            f"{commands.describe(s.get('idleTrigger'))}")
+
+
+@server.tool()
+async def list_sensors(profile: int = -1) -> str:
+    """Sensors configured on the controller for a profile (0-based; -1 = active),
+    with what each controls, its timers and its actions. Read-only (reads 40 slots,
+    takes a few seconds)."""
+    try:
+        counts = await _controller.read_system_counts()
+        p = counts["active"] if profile < 0 else profile
+        sensors = await _controller.pull_sensors(p)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if not sensors:
+        return f"No sensors configured on profile {p + 1} (index {p})."
+    return "\n".join([f"Profile {p + 1} (index {p}) sensors:"]
+                     + [_describe_sensor(s) for s in sensors])
+
+
+def _sensor_batch_messages(p: int, sensors: list, supports_coop: bool) -> list:
+    # A write of slot 0 starts a batch: the controller un-programs every slot on the
+    # profile and mutes the sensors (it unmutes them itself when the batch ends). So
+    # always write the whole profile, slot 0 first.
+    return [spektra_map.sensor_to_message(s, p, _controller._next_id(), supports_coop)
+            for s in sorted(sensors, key=lambda x: x["index"])]
+
+
+@server.tool()
+async def preview_sensor(index: int, sensor_line: int, sensor_address: int,
+                         control: str, occupied_minutes: int = 10,
+                         warning_seconds: int = 30, dead_seconds: int = 2,
+                         on_detect: str = "", on_warning: str = "", on_idle: str = "",
+                         setpoint: int = 0, query_address: int = -1,
+                         coop_group: int = 0, leader: bool = False,
+                         profiles: str = "all") -> str:
+    """Configure a DALI-2 occupancy sensor slot. index: controller sensor slot
+    (0-based, 0-39). sensor_line/sensor_address: where the sensor is (dali2_scan
+    finds it). control: JSON DALI target the sensor drives, e.g. {"line":1,"group":0}
+    or {"line":1,"broadcast":true}. Timers: occupied (minutes, 1-1092) -> warning
+    (seconds, the dimmed period) -> idle; dead_seconds = time after idle before it
+    reacts again. on_detect / on_warning / on_idle: command JSON; defaults are full
+    on / arc 85 / off on the control target. setpoint > 0 turns on daylight
+    harvesting (query_address = one fitting in the controlled group to seed from).
+    coop_group/leader: cooperative groups (several sensors sharing lights; Leaders
+    keep the group on). profiles: 'all', 'active' or '0,2'. Rewrites the profile's
+    whole sensor table (the controller requires it). Returns a token."""
+    try:
+        target = _json(control, "control")
+        ctl_mask = commands.linemask(target)
+        ctl_target = commands.dali_target({**target, "do": "control"})
+        if not 0 <= index < 40:
+            return "index is 0-39."
+        if not 1 <= occupied_minutes <= 1092:
+            return "occupied_minutes is 1-1092."
+        if not (0 <= warning_seconds <= 65535 and 0 <= dead_seconds <= 65535):
+            return "warning_seconds / dead_seconds are 0-65535."
+        if not 0 <= sensor_address <= 63:
+            return "sensor_address is 0-63."
+        if leader and not coop_group:
+            return "A Leader needs a coop_group."
+        query = query_address if query_address >= 0 else (ctl_target if ctl_target <= 63 else -1)
+        if setpoint and not 0 <= query <= 63:
+            return ("Daylight harvesting needs query_address: one fitting (0-63) in the "
+                    "controlled group.")
+
+        def cmd_or(text, default):
+            return commands.build(_json(text, "action") if text.strip() else default)
+
+        base = {**target, "do": "dali_arc"}
+        new = {
+            "index": index, "name": f"Sensor {index + 1}", "line": sensor_line,
+            "address": sensor_address, "setPoint": setpoint,
+            "controlLineMask": ctl_mask, "controlGroup": ctl_target,
+            "addressQuery": max(query, 0),
+            "inactivityTimer": occupied_minutes, "warningTimer": warning_seconds,
+            "disableTimer": dead_seconds, "motionOnly": setpoint == 0,
+            "detectionTrigger": cmd_or(on_detect, {**base, "level": 254}),
+            "warningTrigger": cmd_or(on_warning, {**base, "level": 85}),
+            "idleTrigger": cmd_or(on_idle, {**target, "do": "dali_off"}),
+            "groupedWithIndexes": [], "coopGroup": coop_group, "coopLeader": leader,
+            "prgBtnOne": None, "prgBtnTwo": None, "error": None,
+        }
+        meta = await _controller.read_system_counts()
+        supports_coop = spektra_map.version_gte(meta["firmware"],
+                                                spektra_map.COOP_GROUPING_FIRMWARE)
+        msgs, lines = [], []
+        for p in _profiles(profiles, meta["profiles"], meta["active"]):
+            current = await _controller.pull_sensors(p)
+            clash = [s for s in current if s["index"] != index
+                     and s.get("address") == sensor_address and s.get("line") == sensor_line]
+            if clash:
+                return (f"Profile {p + 1}: sensor slot {clash[0]['index']} already uses line "
+                        f"{sensor_line} address {sensor_address} (one slot per physical sensor).")
+            old = next((s for s in current if s["index"] == index), None)
+            table = [s for s in current if s["index"] != index] + [new]
+            msgs += _sensor_batch_messages(p, table, supports_coop)
+            lines.append(f"Profile {p + 1}: {'replace' if old else 'add'} "
+                         f"(profile has {len(table)} sensor(s) after)")
+        msgs = await _save_after(msgs)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    body = _describe_sensor(new) + "\n" + "\n".join(lines)
+    token = _new_token(msgs, body)
+    return (f"PREVIEW:\n{body}\nSensors are muted briefly while the table is written. "
+            f"Call confirm(token=\"{token}\") to write and save.")
+
+
+@server.tool()
+async def preview_remove_sensor(index: int, profiles: str = "all") -> str:
+    """Remove a sensor slot (0-based) from the controller's sensor table. Returns a token."""
+    try:
+        meta = await _controller.read_system_counts()
+        supports_coop = spektra_map.version_gte(meta["firmware"],
+                                                spektra_map.COOP_GROUPING_FIRMWARE)
+        msgs, lines = [], []
+        for p in _profiles(profiles, meta["profiles"], meta["active"]):
+            current = await _controller.pull_sensors(p)
+            if not any(s["index"] == index for s in current):
+                continue
+            rest = [s for s in current if s["index"] != index]
+            if rest:
+                msgs += _sensor_batch_messages(p, rest, supports_coop)
+            else:
+                # Clearing a profile: RESET is scoped to the active profile.
+                if p != meta["active"]:
+                    msgs.append(spektra_map.change_profile_message(_controller._next_id(), p))
+                msgs.append(spektra_map.reset_sensors_message(_controller._next_id()))
+                msgs.append(spektra_map.device_save_message(_controller._next_id()))
+                if p != meta["active"]:
+                    msgs.append(spektra_map.change_profile_message(_controller._next_id(),
+                                                                   meta["active"]))
+            lines.append(f"Profile {p + 1}: remove Sensor {index + 1} ({len(rest)} left)")
+        if not msgs:
+            return f"Sensor {index + 1} (index {index}) is not configured on those profiles."
+        msgs = await _save_after(msgs)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    token = _new_token(msgs, "\n".join(lines))
+    return "PREVIEW:\n" + "\n".join(lines) + f"\nCall confirm(token=\"{token}\")."
+
+
+@server.tool()
+async def sensor_command(index: int, action: str) -> str:
+    """Act on a configured sensor slot of the ACTIVE profile now: identify (flash its
+    LED), mute (stop it sending), unmute, override (stop it adjusting the light until
+    its occupancy times out). Transient."""
+    names = {"identify": "IDENTIFY", "mute": "MUTE", "unmute": "UNMUTE", "override": "OVERRIDE"}
+    if action.lower() not in names:
+        return f"action: one of {', '.join(names)}."
+    try:
+        from .v2 import ack_summary
+        r = await ops.request(_controller, sensor_command=pb.SensorCommandMessage(
+            index=index, type=pb.SensorCommandType.Value(names[action.lower()])))
+        ack = ack_summary(r)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return f"Sensor {index + 1}: {action} sent." if ack["ok"] else f"Refused: {ack}"
+
+
+# --- line types (DALI / DMX output / DMX input / empty) -----------------------------
+
+_LINE_TYPES = {"empty": 0, "dali": 1, "dmx": 2, "dmx_out": 2, "dmx_output": 2,
+               "dmx_in": 3, "dmx_input": 3, "auto": 4}
+_LINE_NAMES = {0: "empty", 1: "DALI", 2: "DMX output", 3: "DMX input", 4: "auto"}
+
+
+@server.tool()
+async def preview_line_types(changes: str, reboot: bool = True) -> str:
+    """Change what a controller line is: dali, dmx (DMX output - also needed for
+    RDM), dmx_in (DMX input, e.g. from a console), or empty. changes: '3=dmx' or
+    '1=dali,3=dmx_in' (lines 1-based). The controller must REBOOT for it to take
+    effect (about 30 s offline); confirm(token) sets the lines, reboots, waits for
+    the controller and reconnects. Returns a token."""
+    try:
+        current = list(await _controller.read_line_types())
+        if not current:
+            return "This controller does not report its line types."
+        new = list(current)
+        for part in changes.split(","):
+            if not part.strip():
+                continue
+            ln, _, kind = part.partition("=")
+            ln, kind = int(ln), kind.strip().lower()
+            if kind not in _LINE_TYPES:
+                return f"line type: one of {', '.join(sorted(set(_LINE_TYPES)))}."
+            if not 1 <= ln <= len(new):
+                return f"line {ln} is outside 1-{len(new)} on this controller."
+            new[ln - 1] = _LINE_TYPES[kind]
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if new == current:
+        return "No change: the lines are already like that."
+    diff = [f"  line {i + 1}: {_LINE_NAMES.get(a, a)} -> {_LINE_NAMES.get(b, b)}"
+            for i, (a, b) in enumerate(zip(current, new)) if a != b]
+
+    async def run():
+        ack = await _controller.set_line_types(new)
+        if not ack.get("ok"):
+            return f"Refused: {ack}"
+        if not reboot:
+            return "Line types set. They take effect after the next reboot."
+        await _controller.reboot()
+        back = await _controller.wait_for_reboot()
+        if not back:
+            return "Line types set and reboot sent, but the controller did not come back in 2 min."
+        now = await _controller.read_line_types()
+        return ("Done: rebooted and reconnected. Lines now: "
+                + ", ".join(f"{i + 1}={_LINE_NAMES.get(t, t)}" for i, t in enumerate(now)) + ".")
+
+    token = _new_token([], "\n".join(diff))
+    from .server import _pending
+    _pending[token]["runner"] = run
+    return ("PREVIEW:\n" + "\n".join(diff)
+            + ("\nThe controller will REBOOT (about 30 s offline)." if reboot else "")
+            + f"\nCall confirm(token=\"{token}\") to apply.")
+
+
+# --- RDM ------------------------------------------------------------------------------
+
+@server.tool()
+async def rdm_discover(line: int, details: bool = True) -> str:
+    """Find RDM fixtures on a DMX OUTPUT line (1-based) and, by default, read each
+    one's manufacturer, model, label, DMX start address, footprint and personalities.
+    The line must be a DMX output (preview_line_types to change it). Read-only."""
+    from . import rdm
+    try:
+        _controller._require()
+        found = await rdm.discover(_controller, line)
+        if not found["uids"]:
+            extra = f" (error code {found['error_code']})" if found["error_code"] else ""
+            return f"No RDM fixtures answered on line {line}{extra}."
+        rows = [f"{len(found['uids'])} RDM fixture(s) on line {line}:"]
+        for uid in found["uids"]:
+            rows.append(rdm.describe(await rdm.details(_controller, line, uid)) if details
+                        else f"  {rdm.uid_text(uid)}")
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return "\n".join(rows)
+
+
+@server.tool()
+async def rdm_get(line: int, uid: str, pid: int, data: str = "") -> str:
+    """Raw RDM GET of any parameter (pid number, e.g. 0x0060 = 96 DEVICE_INFO).
+    data: optional comma-separated bytes for the request. Returns the reply bytes.
+    Read-only."""
+    from . import rdm
+    try:
+        _controller._require()
+        payload = bytes(int(x, 0) for x in data.split(",") if x.strip())
+        r = await rdm.request(_controller, line, rdm.parse_uid(uid), pid, data=payload)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    name = rdm.PID_NAMES.get(pid, f"PID 0x{pid:04X}")
+    if not r["ok"]:
+        return f"{name}: no answer ({r['error']})."
+    b = r["data"]
+    text = "".join(chr(x) if 32 <= x < 127 else "." for x in b)
+    return f"{name}: {len(b)} byte(s) {b.hex(' ')}  '{text}'"
+
+
+@server.tool()
+async def rdm_identify(line: int, uid: str, on: bool = True) -> str:
+    """Make an RDM fixture identify itself (flash) - or stop. Transient."""
+    from . import rdm
+    try:
+        _controller._require()
+        r = await rdm.request(_controller, line, rdm.parse_uid(uid), rdm.PID_IDENTIFY_DEVICE,
+                              set_=True, data=bytes([1 if on else 0]))
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return (f"Identify {'on' if on else 'off'} for {uid}." if r["ok"]
+            else f"No answer from {uid}: {r['error']}")
+
+
+@server.tool()
+async def preview_rdm_set(line: int, uid: str, start_address: int = 0,
+                          personality: int = 0, label: str = "") -> str:
+    """Change an RDM fixture: DMX start_address (1-512), personality (its mode number,
+    see rdm_discover), and/or label (up to 32 characters). Only the values you give
+    are changed. Returns a token; confirm(token) sends them and reads them back."""
+    from . import rdm
+    try:
+        _controller._require()
+        u = rdm.parse_uid(uid)
+        cur = await rdm.details(_controller, line, u)
+        if cur.get("error"):
+            return f"{uid} does not answer on line {line}."
+        sets, lines = [], []
+        if start_address:
+            if not 1 <= start_address <= 512:
+                return "start_address is 1-512."
+            fp = cur.get("footprint") or 1
+            if start_address + fp - 1 > 512:
+                return f"Start {start_address} + footprint {fp} runs past channel 512."
+            sets.append((rdm.PID_DMX_START_ADDRESS, start_address.to_bytes(2, "big")))
+            lines.append(f"  DMX start address: {cur.get('start_address')} -> {start_address}")
+        if personality:
+            ids = [p["id"] for p in cur.get("personalities", [])]
+            if ids and personality not in ids:
+                return f"personality: one of {ids}."
+            sets.append((rdm.PID_DMX_PERSONALITY, bytes([personality])))
+            name = next((p["name"] for p in cur.get("personalities", [])
+                         if p["id"] == personality), "?")
+            lines.append(f"  personality: {cur.get('personality')} -> {personality} ({name})")
+        if label:
+            if len(label.encode("utf-8")) > 32:
+                return "An RDM label is at most 32 bytes."
+            sets.append((rdm.PID_DEVICE_LABEL, label.encode("utf-8")))
+            lines.append(f"  label: '{cur.get('label', '')}' -> '{label}'")
+        if not sets:
+            return "Nothing to change: give start_address, personality and/or label."
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+
+    async def run():
+        out = []
+        for pid, data in sets:
+            r = await rdm.request(_controller, line, u, pid, set_=True, data=data)
+            out.append(f"{rdm.PID_NAMES.get(pid, pid)}: {'sent' if r['ok'] else r['error']}")
+        after = await rdm.details(_controller, line, u)
+        return "Done. " + "; ".join(out) + "\nNow:\n" + rdm.describe(after)
+
+    token = _new_token([], "\n".join(lines))
+    from .server import _pending
+    _pending[token]["runner"] = run
+    return (f"PREVIEW for {cur.get('manufacturer', '')} {cur.get('model', '')} {uid}:\n"
+            + "\n".join(lines) + f"\nCall confirm(token=\"{token}\") to send.")

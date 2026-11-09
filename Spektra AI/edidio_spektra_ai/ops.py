@@ -89,10 +89,12 @@ def _health_findings(r: dict) -> list:
             out.append(("info", "NTP is off: the clock drifts unless it is set by hand"))
         now = td.get("rtc_unix_epoch_now")
         if now:
-            # The RTC holds local time; compare with this computer's local clock.
+            # rtc_unix_epoch_now counts seconds since 2000-01-01 in the controller's
+            # LOCAL time; compare with this computer's local clock on the same base.
+            import calendar as _cal
             import time as _t
-            pc = _t.time() - _t.timezone + (3600 if _t.localtime().tm_isdst else 0)
-            skew = int(now - pc)
+            pc_local = _cal.timegm(_t.localtime()) - 946684800
+            skew = int(now - pc_local)
             if abs(skew) >= 120:
                 out.append(("info", f"controller clock is {abs(skew) // 60} min "
                                     f"{'ahead of' if skew > 0 else 'behind'} this computer"

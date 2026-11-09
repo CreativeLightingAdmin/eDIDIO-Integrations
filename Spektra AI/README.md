@@ -90,6 +90,22 @@ no file needed
 - `list_logic` / `preview_logic` — if DALI level / input / list running / occupancy /
   DMX present / weekday / month / alarm / DALI error, then A else B.
 
+**Sensors and DALI-2 control devices** — `dali2_scan` / `dali2_device` (find sensors,
+push buttons and rotaries in the 24-bit address space; per instance: type, enabled,
+event scheme/filter, live occupancy and light level), `list_sensors`,
+`preview_sensor` (control target, occupied / warning / dead-time timers, detect /
+warning / idle actions, daylight harvesting setpoint, Leader/Follower co-op groups,
+per profile), `preview_remove_sensor`, `sensor_command` (identify, mute, unmute,
+override).
+
+**RDM** (on a DMX output line) — `rdm_discover` (fixtures with manufacturer, model,
+label, start address, footprint and personalities), `rdm_identify`,
+`preview_rdm_set` (start address, personality, label; read back after),
+`rdm_get` (any parameter).
+
+**Line types** — `preview_line_types` (DALI / DMX output / DMX input / empty per
+line; reboots the controller and reconnects).
+
 **SD card** (models with a card) — `sd_overview` (space, and each log folder's
 state and size), `sd_list_files`, `sd_read_file`, `sd_download` (binary logs too),
 `sd_search` (find lines in the newest log files, e.g. when an input fired, or
