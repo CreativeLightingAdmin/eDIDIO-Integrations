@@ -349,3 +349,19 @@ def test_reset_sensors_message():
     a = _decode(m.reset_sensors_message(1)).admin_message
     assert a.command == pb.AdminCommandType.RESET
     assert a.target == pb.AdminPropertyType.DALI_SENSORS
+
+
+def test_translation_and_burnin_roundtrip():
+    from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+    t = {"index": 0, "isEnabled": True, "lineIn": 4, "lineOut": 1, "DMXStartAddress": 0,
+         "DMXEndAddress": 3, "DALIAddresses": [0, 1, 66], "blockInputs": True, "inputMask": 3}
+    o = v2pb.EdidioMessage.FromString(m.translations_to_message([t], 1)[3:]).dmx_translator.object[0]
+    assert o.dmx_start_address == 1 and o.channel_count == 3       # start clamped to 1
+    assert len(o.dali_array) == 64 and list(o.dali_array[:3]) == [0, 1, 66]
+    back = m.translation_to_dict(o, 0)
+    assert back["DMXStartAddress"] == 1 and back["DMXEndAddress"] == 3 and back["inputMask"] == 3
+    b = {"index": 1, "line_mask": 1, "address": 66, "query_address": 0, "duration": 60,
+         "states": {"light_state": 0, "running_flag": False}}
+    bo = v2pb.EdidioMessage.FromString(m.burnins_to_message([b], 2)[3:]).burn_ins.burnin[0]
+    assert bo.time == 60 and bo.states.enable_flag == 1 and bo.address == 66
+    assert m.burnin_to_dict(bo, 1)["duration"] == 60

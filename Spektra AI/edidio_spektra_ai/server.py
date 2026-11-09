@@ -514,7 +514,8 @@ async def preview_push_spektra(path: str, host: str = "", port: int = 23,
     auto-capped to 254 on DALI devices.
 
     `sections` is comma-separated; supported: sequences, themes, zones, schedules,
-    inputs, outputs, logicActions, lists, sensors, daliInputs. Inputs/outputs/sensors/
+    inputs, outputs, logicActions, lists, sensors, daliInputs, controlTranslations
+    (DMX-to-DALI), burnIns (writing restarts their countdowns). Inputs/outputs/sensors/
     daliInputs write per profile (whole profile if anything differs); logicActions
     writes all logic together. (Zones change electrical/patch config — include them
     deliberately.)

@@ -720,3 +720,78 @@ def zone_to_dict(pb) -> dict:
         "multiLineAddressing": pb.line_addressing or 0,
         "daligroupoffset": None,
     }
+
+
+# --- DMX-to-DALI translations and burn-ins (current proto: the legacy module lacks
+# the DMX_TRANSLATIONS read type) -------------------------------------------------
+
+DALI_ARRAY_SIZE = 64      # the device always returns 64 DALI entries per translation
+
+
+def translation_to_dict(pb_obj, index: int) -> dict:
+    """DMXTranslationObject -> EdidioControlTranslation (mirrors SpektraPlus: 64
+    DALI entries, end = start + max(count, 1) - 1; the protocol has no index)."""
+    raw = list(pb_obj.dali_array or [])[:DALI_ARRAY_SIZE]
+    start = pb_obj.dmx_start_address or 0
+    return {
+        "name": f"Translation {index + 1}", "index": index,
+        "isEnabled": bool(pb_obj.enabled), "lineIn": pb_obj.line_in or 0,
+        "lineOut": pb_obj.line_out or 0, "DMXStartAddress": start,
+        "DMXEndAddress": start + max(pb_obj.channel_count or 1, 1) - 1,
+        "DALIAddresses": raw + [0] * (DALI_ARRAY_SIZE - len(raw)),
+        "blockInputs": bool(pb_obj.blocking), "inputMask": pb_obj.affected_input or 0,
+        "error": None,
+    }
+
+
+def translations_to_message(items: list, message_id: int) -> bytes:
+    """[EdidioControlTranslation] -> one DMXProtocolTranslation frame (all objects)."""
+    from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+
+    from .v2 import frame
+    objs = []
+    for t in sorted(items, key=lambda x: x.get("index", 0)):
+        start = min(max(int(t.get("DMXStartAddress", 1)), 1), 512)
+        count = max(int(t.get("DMXEndAddress", start)) - start + 1, 0)
+        dali = [int(x) for x in (t.get("DALIAddresses") or [])][:DALI_ARRAY_SIZE]
+        objs.append(v2pb.DMXTranslationObject(
+            enabled=bool(t.get("isEnabled")), line_in=int(t.get("lineIn", 0)),
+            line_out=int(t.get("lineOut", 0)), dmx_start_address=start,
+            channel_count=count, dali_array=dali + [0] * (DALI_ARRAY_SIZE - len(dali)),
+            blocking=bool(t.get("blockInputs")), affected_input=int(t.get("inputMask", 0))))
+    return frame(v2pb.EdidioMessage(message_id=message_id,
+                                    dmx_translator=v2pb.DMXProtocolTranslation(object=objs)))
+
+
+def burnin_to_dict(pb_obj, index: int) -> dict:
+    """BurnInMessage -> EdidioBurnIn (mirrors SpektraPlus; duration in minutes)."""
+    st = pb_obj.states
+    return {
+        "name": f"Burn In {index + 1}", "index": index,
+        "enabled": bool(st.enable_flag), "line_mask": pb_obj.line or 0,
+        "address": pb_obj.address or 0, "query_address": pb_obj.query_address or 0,
+        "duration": pb_obj.time or 0, "remaining": pb_obj.remaining or 0,
+        "states": {"light_state": st.light_state or 0, "running_flag": bool(st.running_flag),
+                   "enable_flag": bool(st.enable_flag)},
+        "error": None,
+    }
+
+
+def burnins_to_message(items: list, message_id: int) -> bytes:
+    """[EdidioBurnIn] -> BurnInMultiMessage frame. NOTE: setting a burn-in's time
+    restarts its countdown on the controller."""
+    from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+
+    from .v2 import frame
+    objs = []
+    for b in sorted(items, key=lambda x: x.get("index", 0)):
+        st = b.get("states") or {}
+        objs.append(v2pb.BurnInMessage(
+            index=int(b["index"]), line=int(b.get("line_mask", 0)),
+            address=int(b.get("address", 0)), query_address=int(b.get("query_address", 0)),
+            time=int(b.get("duration") or 0), remaining=0,
+            states=v2pb.BurnInBitsMessage(enable_flag=1,
+                                          light_state=int(st.get("light_state", 0)),
+                                          running_flag=1 if st.get("running_flag") else 0)))
+    return frame(v2pb.EdidioMessage(message_id=message_id,
+                                    burn_ins=v2pb.BurnInMultiMessage(burnin=objs)))

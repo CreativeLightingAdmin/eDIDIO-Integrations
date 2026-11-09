@@ -36,6 +36,48 @@ SEQUENCE_TYPES = {
 
 TIME_UNITS = {0: "milliseconds", 1: "seconds", 2: "minutes", 3: "hours"}
 
+TOOLS_BY_TASK = """\
+## Tools by task
+
+Reads run at once; anything the controller stores is preview_* -> confirm(token)
+and ends with a save. Indices are 0-based (List 1 = 0); replies show both.
+
+- **Find / connect**: discover_controllers, connect_controller (TLS on 443),
+  connection_status, device_capabilities, get_device_settings, list_zones,
+  get_zone_details, query_dmx_cache.
+- **Health and faults**: health_check, get_diagnostics, run_line_diagnostics,
+  device_log, diagnose_controller_log (lights left on - from the controller's own
+  log), preview_clear_device_log, sd_overview / sd_list_files / sd_read_file / sd_search / sd_download,
+  parse_event_log / diagnose_stuck_on (exported files).
+- **What is happening now**: live_state, sensor_states, dali_levels, whats_playing,
+  whats_scheduled_next, get_time.
+- **Do something now** (transient): run_command (any action - command_reference),
+  change_profile, play_sequence / play_theme / stop_zone, set_zone_colour,
+  send_dali / send_dmx, sensor_command, rdm_identify.
+- **Author on the controller**: preview_list, preview_input (momentary or latching),
+  preview_output, preview_logic, preview_sensor / preview_remove_sensor,
+  preview_translation (DMX to DALI), preview_burnin, preview_schedule (any command),
+  preview_sequence / preview_theme / preview_calendar, clear_schedule, preview_names.
+- **Read the configuration**: list_lists, list_io, list_logic, list_sensors,
+  list_translations, list_burnins, list_sequences, list_themes, list_alarms,
+  get_calendar, check_calendar (expected dates vs the calendar), get_names,
+  functionality_statement (plain-English write-up).
+- **Settings**: preview_device_settings, preview_network_settings,
+  preview_clock_settings, ntp_sync_now, set_time, preview_line_types (reboots),
+  preview_logging, wifi_status / preview_wifi_settings (ADDICT).
+- **DALI**: dali_scan, dali_levels, commission_dali / preview_dali_commission, set_dali_line,
+  dali_add_to_group, dali_set_scenes, dali_set_fade_time, dali_query_groups,
+  dali_recall_scene, dali_set_level, dali_identify, dali_set_colour (DT8).
+  DALI-2 control devices: dali2_scan, dali2_device.
+- **RDM** (DMX output line): rdm_discover, rdm_get, rdm_identify, preview_rdm_set.
+- **.spektra files**: pull_spektra_file, preview_push_spektra (only the connected
+  controller, only what changed), sync_status, summarize_spektra,
+  validate_spektra, diff_spektra, migrate_spektra_to_v3.
+- **Watch and notify**: start_watching / recent_events / stop_watching,
+  notify_when (ready-made events), notify_on (raw conditions),
+  list_notifications / clear_notifications.
+"""
+
 NOTES = """\
 ## How to author
 
@@ -196,6 +238,7 @@ def build_guide() -> str:
         subset={"SUCCESS", "INDEX_OUT_OF_BOUNDS", "INVALID_PARAMS", "SLOTS_FULL",
                 "DEPRECATED", "UNAUTHORISED", "DECODE_FAILED"}))
 
+    parts.append(TOOLS_BY_TASK)
     parts.append("## Commands (inputs, list steps, logic, run_command)\n")
     from .commands import ACTIONS
     parts.append(

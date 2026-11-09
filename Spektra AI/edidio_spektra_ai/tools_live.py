@@ -1562,3 +1562,188 @@ async def set_zone_colour(zone: int, colour: str, fade_ms: int = 50,
     if bad:
         return f"{what} - {len(bad)} of {len(acks)} message(s) refused: {bad[0]}"
     return what + f" ({len(acks)} message(s), fade {fade_ms} ms)."
+
+
+# --- DMX-to-DALI translations ---------------------------------------------------------
+
+def _dali_targets(spec: str) -> list:
+    """'0-3' (short addresses), 'g2' / 'group 2', 'all' / 'broadcast', or a mix:
+    '0,1,g2' -> DALI targets (address, 64+group, 80)."""
+    out = []
+    for part in str(spec).replace(";", ",").split(","):
+        p = part.strip().lower()
+        if not p:
+            continue
+        if p in ("all", "broadcast"):
+            out.append(80)
+        elif p.startswith("g"):
+            g = int(p.lstrip("group ").lstrip("g"))
+            if not 0 <= g <= 15:
+                raise ValueError(f"group {g} is outside 0-15")
+            out.append(64 + g)
+        elif "-" in p:
+            a, b = (int(x) for x in p.split("-"))
+            out.extend(range(a, b + 1))
+        else:
+            out.append(int(p))
+    if any(not 0 <= t <= 80 for t in out):
+        raise ValueError("DALI addresses are 0-63, groups g0-g15, or 'all'")
+    return out
+
+
+def _describe_translation(t: dict) -> str:
+    if not t.get("isEnabled"):
+        return f"  Translation {t['index'] + 1}: off"
+    n = t["DMXEndAddress"] - t["DMXStartAddress"] + 1
+    targets = [commands._dali_tgt(a) for a in (t.get("DALIAddresses") or [])[:n]]
+    pairs = ", ".join(f"ch{t['DMXStartAddress'] + i}->{x}" for i, x in enumerate(targets))
+    block = (f"; blocks inputs {[i + 1 for i in range(32) if t.get('inputMask', 0) & (1 << i)]}"
+             f" while DMX is present" if t.get("blockInputs") and t.get("inputMask") else "")
+    return (f"  Translation {t['index'] + 1}: DMX in on {commands._lines(t.get('lineIn', 0))} -> "
+            f"DALI {commands._lines(t.get('lineOut', 0))}: {pairs}{block}")
+
+
+@server.tool()
+async def list_translations() -> str:
+    """DMX-to-DALI translations: which DMX input channels drive which DALI addresses
+    or groups (as arc levels, sampled every 0.7 s). Read-only."""
+    try:
+        items = await _controller.pull_translations()
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    if not items:
+        return "This controller has no DMX-to-DALI translation slots."
+    return "\n".join(_describe_translation(t) for t in items)
+
+
+@server.tool()
+async def preview_translation(index: int, dmx_in_line: int = 0, dali_line: int = 0,
+                              dmx_start: int = 1, dali_targets: str = "",
+                              enabled: bool = True, block_inputs: str = "") -> str:
+    """Set up a DMX-to-DALI translation: DMX channels from dmx_start on the DMX INPUT
+    line dmx_in_line drive the DALI targets in order on dali_line (channel dmx_start ->
+    first target, +1 -> second, ...). dali_targets: '0-3', 'g2', 'all' or a mix
+    ('0,1,g2'); up to 64. block_inputs: input numbers ('1,2', 1-based) ignored while
+    DMX is present. enabled=False switches the slot off. index 0-based. The DMX line
+    must be a DMX input (preview_line_types). Returns a token."""
+    try:
+        items = await _controller.pull_translations()
+        if not 0 <= index < len(items):
+            return f"index is 0-{len(items) - 1} on this controller."
+        new = dict(items[index])
+        if enabled:
+            targets = _dali_targets(dali_targets)
+            if not targets or len(targets) > 64:
+                return "Give 1-64 DALI targets."
+            if not (1 <= dmx_start and dmx_start + len(targets) - 1 <= 512):
+                return "The DMX channels must sit within 1-512."
+            lines = await _controller.read_line_types()
+            if lines and (len(lines) < dmx_in_line or lines[dmx_in_line - 1] != 3):
+                return (f"Line {dmx_in_line} is not a DMX input on this controller "
+                        "(set it with preview_line_types).")
+            if lines and (len(lines) < dali_line or lines[dali_line - 1] != 1):
+                return f"Line {dali_line} is not a DALI line on this controller."
+            mask = 0
+            for i in (int(x) for x in block_inputs.split(",") if x.strip()):
+                mask |= 1 << (i - 1)
+            new.update(isEnabled=True, lineIn=1 << (dmx_in_line - 1),
+                       lineOut=1 << (dali_line - 1), DMXStartAddress=dmx_start,
+                       DMXEndAddress=dmx_start + len(targets) - 1,
+                       DALIAddresses=targets + [0] * (64 - len(targets)),
+                       blockInputs=bool(mask), inputMask=mask)
+        else:
+            new["isEnabled"] = False
+        table = [new if t["index"] == index else t for t in items]
+        msgs = await _save_after([spektra_map.translations_to_message(table, _controller._next_id())])
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    body = "was:\n" + _describe_translation(items[index]) + "\nnow:\n" + _describe_translation(new)
+    token = _new_token(msgs, body)
+    return f"PREVIEW:\n{body}\nCall confirm(token=\"{token}\") to write and save."
+
+
+# --- burn-ins ---------------------------------------------------------------------
+
+def _describe_burnin(b: dict) -> str:
+    if not b.get("duration"):
+        return f"  Burn-in {b['index'] + 1}: not set up"
+    st = b.get("states") or {}
+    running = "counting down" if st.get("running_flag") else "paused (lights off)"
+    if not b.get("remaining"):
+        running = "finished"
+    return (f"  Burn-in {b['index'] + 1}: holds {commands._dali_tgt(b.get('address', 0))} "
+            f"{commands._lines(b.get('line_mask', 0))} at full for {b['duration'] / 60:g} h "
+            f"(counts only while address {b.get('query_address')} is on); "
+            f"{b.get('remaining', 0) / 60:g} h left, {running}")
+
+
+@server.tool()
+async def list_burnins() -> str:
+    """Burn-ins (new-lamp seasoning: lights held at full for N hours) with time left
+    and whether they are counting. Read-only."""
+    try:
+        items = await _controller.pull_burnins()
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return "\n".join(_describe_burnin(b) for b in items) or "No burn-in slots."
+
+
+@server.tool()
+async def preview_burnin(index: int, line: int, target: str, query_address: int,
+                         hours: float) -> str:
+    """Set up a burn-in: hold `target` ('5', 'g2' or 'all') on DALI `line` at full for
+    `hours`; the countdown only runs while `query_address` (one fitting in it) is on.
+    Start/stop it with run_command {"do":"burnin_start","burnin":N}. Writing burn-ins
+    RESTARTS their countdowns. hours=0 clears the slot. index 0-based. Returns a token."""
+    try:
+        items = await _controller.pull_burnins()
+        if not 0 <= index < len(items):
+            return f"index is 0-{len(items) - 1} on this controller."
+        tgt = _dali_targets(target)
+        if len(tgt) != 1:
+            return "Give one target: an address, a group (g2) or all."
+        minutes = int(round(hours * 60))
+        if not 0 <= minutes <= 65535:
+            return "hours is 0-1092."
+        if not 0 <= query_address <= 63:
+            return "query_address is one fitting, 0-63."
+        new = dict(items[index], line_mask=1 << (line - 1) if minutes else 0,
+                   address=tgt[0] if minutes else 0,
+                   query_address=query_address if minutes else 0, duration=minutes)
+        table = [new if b["index"] == index else b for b in items]
+        msgs = await _save_after([spektra_map.burnins_to_message(table, _controller._next_id())])
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    body = "was:\n" + _describe_burnin(items[index]) + "\nnow:\n" + _describe_burnin(
+        {**new, "remaining": new["duration"]})
+    token = _new_token(msgs, body)
+    return (f"PREVIEW:\n{body}\nWriting burn-ins restarts every countdown. "
+            f"Call confirm(token=\"{token}\").")
+
+
+# --- calendar check -----------------------------------------------------------------
+
+@server.tool()
+async def check_calendar(expected: str, year: int = 0, strict: bool = False) -> str:
+    """Check the controller's Spektra calendar against what it should hold. expected:
+    JSON list of {"dates": "12-01..12-26" | "2026-12-25" | ["12-24","12-25"],
+    "sequence": 3 or "Christmas" (index 0-based, or name) | "theme": ... |
+    "nothing": true}. year: the year the dates are in (default this year; from
+    1 March the calendar slots shift by a day in leap years). strict=True also lists
+    calendar days not in your list. Reports matches and every day that differs.
+    Read-only."""
+    from datetime import date as _date
+
+    from . import calendar_check
+    try:
+        exp = _json(expected, "expected")
+        if isinstance(exp, dict):
+            exp = [exp]
+        y = year or _date.today().year
+        days = await _controller.read_calendar()
+        names = {"sequence": {s["index"]: s.get("name") for s in await _controller.pull_sequences()},
+                 "theme": {t["index"]: t.get("name") for t in await _controller.pull_themes()}}
+        res = calendar_check.compare(days, exp, names, y, strict=strict)
+    except Exception as err:  # noqa: BLE001
+        return _err(err)
+    return calendar_check.format_report(res, y)

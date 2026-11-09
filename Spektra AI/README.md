@@ -112,6 +112,15 @@ control does in plain English (profiles and what switches them, schedules, input
 sensors, DALI-2 inputs, lists, logic, outputs, zones, Spektra content) from the
 connected controller or a `.spektra` file, optionally saved as Markdown.
 
+**DMX-to-DALI translations and burn-ins** — `list_translations` /
+`preview_translation` (DMX input channels driving DALI addresses or groups, with
+input blocking), `list_burnins` / `preview_burnin`; both are also in pull, push and
+sync.
+
+**Calendar check** — `check_calendar` compares the Spektra calendar with what it
+should hold (dates or ranges in a year, sequence/theme by number or name) and lists
+every day that differs; `strict` also lists days you did not mention.
+
 **Live colour** — `set_zone_colour` puts a zone on a colour right now (`#RRGGBB` or
 one level per channel) for trying colours while designing; DMX and DALI zones.
 
@@ -184,7 +193,7 @@ Restart Claude Desktop; the Spektra AI tools + the capability guide appear.
 ## Testing
 
 ```bash
-python -m pytest -q     # 199 tests, no controller required
+python -m pytest -q     # 204 tests, no controller required
 ```
 
 Everything is verified with **no controller** (stub clients + real-file fixtures).
@@ -226,7 +235,7 @@ Spektra AI/
 │   └── templates/           # bundled controller template (device skeleton)
 ├── tools/build_alma.py      # example: generate a project from a functionality statement
 ├── CAPABILITY_GUIDE.md      # generated snapshot of the guide
-└── tests/                   # 199 tests (stub clients + real-file fixtures)
+└── tests/                   # 204 tests (stub clients + real-file fixtures)
 ```
 
 ### Fidelity notes (mirroring SpektraPlus)
@@ -243,6 +252,8 @@ Spektra AI/
   ms, sequence titles cut to 23 UTF-8 bytes and themes to 27, NO_COMMAND triggers
   zeroed, DMX start clamp. Titles are cut the same way on push (a title over 27 bytes
   fails decode on the controller and the whole write is refused).
+- Sequences and themes are read from the controller's slot manifest (firmware
+  1.6.0+: only the used slots, all 144), falling back to every slot it reports.
 - Lists read and write all steps (first 32 in `ListMessage`, the rest in
   `ExtendedListMessage` blocks); `state` is `list_state & 0x0F` with a separate
   `isShow`, as SpektraPlus reads it.

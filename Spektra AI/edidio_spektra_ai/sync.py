@@ -38,7 +38,10 @@ _TYPE_TRANSIENT = {
 PROFILE_BASED = {"inputs", "outputs", "sensors", "daliInputs"}
 # Sections this module can hash/sync (all with device-backed protocol support).
 SYNC_SECTIONS = ("sequences", "themes", "zones", "schedules", "logicActions",
-                 "lists", "inputs", "outputs", "sensors", "daliInputs")
+                 "lists", "inputs", "outputs", "sensors", "daliInputs",
+                 "burnIns", "controlTranslations")
+# The sync data type name -> where it lives in the eDIDIO dict, when they differ.
+FILE_KEY = {"controlTranslations": "translations"}
 
 _MIN_STEP_MS = 50
 _MIN_ZONE_SCALE = 0.1
@@ -313,7 +316,7 @@ def section_value(edidio: dict, data_type: str):
     a flat array for device-level types, a per-profile 2-D array for profile types."""
     if data_type in PROFILE_BASED:
         return [(prof.get(data_type) or []) for prof in (edidio.get("profiles") or [])]
-    return edidio.get(data_type) or []
+    return edidio.get(FILE_KEY.get(data_type, data_type)) or []
 
 
 # --- status detection + ledger ----------------------------------------------

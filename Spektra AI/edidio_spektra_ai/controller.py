@@ -27,7 +27,7 @@ from .notify import NotificationManager
 from .scheduling import next_scheduled, parse_calendar_overview
 
 # Documented slot counts (the device also reports exact counts via diagnostics).
-SEQUENCE_SCAN = 32   # how many sequence slots to scan for "list sequences"
+SEQUENCE_SCAN = 144  # sequence slots when the controller does not report them
 THEME_SCAN = 10      # firmware spektra_theme_count (confirmed via diag on 1.5.3)
 ZONE_SCAN = 10
 CALENDAR_PAGES = 5   # 5 pages x 90 days covers the 366-day year
@@ -195,10 +195,44 @@ class SpektraController:
         frame = EdidioClient.create_spektra_read_message(self._next_id(), target_type, index)
         return await client.request(frame)
 
+    async def spektra_manifest(self, kind: str) -> dict | None:
+        """{slot index: CRC} of the occupied SEQUENCE or THEME slots, from the slot
+        manifest (firmware 1.6.0+), or None when the firmware has no manifest (older
+        firmware ignores the flag and answers with slot 0 instead)."""
+        from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+        out: dict = {}
+        for page in range(64):
+            r = await v2.request(self._require(), v2pb.EdidioMessage(
+                message_id=self._next_id(), spektra_read=v2pb.SpektraReadMessage(
+                    type=v2pb.SpektraTargetType.Value(kind), index=page, manifest=True)))
+            if r.WhichOneof("payload") != "spektra_manifest":
+                return None if page == 0 else out
+            m = r.spektra_manifest
+            out.update(zip(m.index, m.crc))
+            if m.is_last_page or not m.slot_count:
+                break
+        return out
+
+    async def spektra_slots(self, kind: str) -> list:
+        """Slot indices to read: the occupied ones from the manifest, else every slot
+        the controller has (sequences 144 / themes 10 on current models)."""
+        man = await self.spektra_manifest(kind)
+        if man is not None:
+            return sorted(man)
+        client = self._require()
+        reply = await client.request(EdidioClient.create_diagnostic_message(
+            self._next_id(), DiagnosticMessageType.DIAGNOSTIC_SYSTEM_INFO))
+        which = reply.WhichOneof("payload")
+        diag = getattr(reply, which) if which and which.startswith("diag") else None
+        field = "spektra_seq_count" if kind == "SEQUENCE" else "spektra_theme_count"
+        count = (getattr(diag, field, 0) if diag is not None else 0) or (
+            SEQUENCE_SCAN if kind == "SEQUENCE" else THEME_SCAN)
+        return list(range(count))
+
     async def list_sequences(self) -> list:
-        """Read each sequence slot; keep the ones that exist (title/type/colours)."""
+        """Read each used sequence slot (title/type/colours)."""
         out = []
-        for i in range(SEQUENCE_SCAN):
+        for i in await self.spektra_slots("SEQUENCE"):
             reply = await self._read_spektra(SpektraTargetType.SEQUENCE, i)
             if reply.WhichOneof("payload") == "spektra_sequence":
                 s = reply.spektra_sequence
@@ -209,7 +243,7 @@ class SpektraController:
 
     async def list_themes(self) -> list:
         out = []
-        for i in range(THEME_SCAN):
+        for i in await self.spektra_slots("THEME"):
             reply = await self._read_spektra(SpektraTargetType.THEME, i)
             if reply.WhichOneof("payload") == "spektra_theme":
                 t = reply.spektra_theme
@@ -219,7 +253,7 @@ class SpektraController:
     # --- pull live config into .spektra JSON (protobuf -> file via spektra_map) ---
     async def pull_sequences(self) -> list:
         out = []
-        for i in range(SEQUENCE_SCAN):
+        for i in await self.spektra_slots("SEQUENCE"):
             reply = await self._read_spektra(SpektraTargetType.SEQUENCE, i)
             if reply.WhichOneof("payload") == "spektra_sequence":
                 out.append(spektra_map.sequence_to_dict(reply.spektra_sequence))
@@ -227,7 +261,7 @@ class SpektraController:
 
     async def pull_themes(self) -> list:
         out = []
-        for i in range(THEME_SCAN):
+        for i in await self.spektra_slots("THEME"):
             reply = await self._read_spektra(SpektraTargetType.THEME, i)
             if reply.WhichOneof("payload") == "spektra_theme":
                 out.append(spektra_map.theme_to_dict(reply.spektra_theme))
@@ -321,6 +355,27 @@ class SpektraController:
             return [spektra_map.logic_to_dict(g, i)
                     for i, g in enumerate(reply.logic_message.logic)]
         return []
+
+    async def _read_v2(self, read_type: str, index: int = 0):
+        from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
+        return await v2.request(self._require(), v2pb.EdidioMessage(
+            message_id=self._next_id(), read_device=v2pb.ReadDeviceMessage(
+                type=v2pb.ReadType.Value(read_type), index=index)))
+
+    async def pull_translations(self) -> list:
+        """DMX-to-DALI translation objects (empty if the controller has none)."""
+        r = await self._read_v2("DMX_TRANSLATIONS")
+        if r.WhichOneof("payload") != "dmx_translator":
+            return []
+        return [spektra_map.translation_to_dict(o, i)
+                for i, o in enumerate(r.dmx_translator.object)]
+
+    async def pull_burnins(self) -> list:
+        """Burn-ins with their live state (duration / remaining in minutes)."""
+        r = await self._read_v2("BURN_IN")
+        if r.WhichOneof("payload") != "burn_ins":
+            return []
+        return [spektra_map.burnin_to_dict(b, i) for i, b in enumerate(r.burn_ins.burnin)]
 
     async def pull_lists(self, list_count: int) -> list:
         """Every list with all its steps (blocks past 32 via LIST_EXTENDED)."""
@@ -438,6 +493,8 @@ class SpektraController:
             "profiles": await self.pull_profiles(counts["profiles"]),
             "logicActions": await self.pull_logic(),
             "lists": await self.pull_lists(counts["lists"]),
+            "translations": await self.pull_translations(),
+            "burnIns": await self.pull_burnins(),
             "error": "",
         })
 
@@ -680,6 +737,24 @@ class SpektraController:
                         messages.append(spektra_map.reset_sensors_message(self._next_id()))
                         messages.append(spektra_map.device_save_message(self._next_id()))
                         summary.append(f"clear sensors profile {p}")
+
+            elif section in ("controlTranslations", "burnIns"):
+                key = "translations" if section == "controlTranslations" else "burnIns"
+                file_items = ed.get(key) or []
+                if not file_items:
+                    continue
+                live_items = await (self.pull_translations() if key == "translations"
+                                    else self.pull_burnins())
+                if self._same(section, live_items, file_items):
+                    continue
+                if key == "translations":
+                    messages.append(spektra_map.translations_to_message(
+                        file_items, self._next_id()))
+                    summary.append(f"update DMX-to-DALI translations ({len(file_items)})")
+                else:
+                    messages.append(spektra_map.burnins_to_message(file_items, self._next_id()))
+                    summary.append(f"update burn-ins ({len(file_items)}) - restarts their "
+                                   "countdowns")
 
             elif section == "daliInputs":
                 for p, prof in enumerate(ed.get("profiles") or []):

@@ -36,3 +36,14 @@ def test_guide_field_numbers_from_descriptors():
     assert "index#1" in g
     assert "colours#17" in g          # sequence colours field
     assert "start_trigger#5" in g     # alarm start_trigger field
+
+
+def test_guide_lists_every_tool():
+    import asyncio
+    import re
+
+    from edidio_spektra_ai import capability_guide, server
+    names = {t.name for t in asyncio.run(server.server.list_tools())}
+    section = capability_guide.build_guide().split("## Tools by task")[1].split("## Commands")[0]
+    listed = set(re.findall(r"[a-z][a-z0-9_]{3,}", section))
+    assert names - listed == set(), f"tools missing from the guide: {sorted(names - listed)}"
