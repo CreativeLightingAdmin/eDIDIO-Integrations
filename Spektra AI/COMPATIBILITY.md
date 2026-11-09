@@ -22,7 +22,7 @@ hardware, and what is still to do.
 | eDIDIO S10 6-pole, firmware 1.6.3 | Verified live, over TLS (port 443) and plain TCP (port 23) |
 | eDIDIO S10, firmware 1.5.7 | Verified live (pull, push, sync, event stream) |
 | eDIDIO S10 4-pole / 9-pole | Expected to work (slot counts come from the controller); not tested on hardware |
-| ADDICT V3, firmware 3.9.3 | Verified live for what it supports: discovery, health, Wi-Fi status/settings (read), DALI status, device status, memory, crash log, connections, DMX timing. It has no configuration, device log, clock, line types or inputs, and the tools say so. |
+| ADDICT V3, firmware 3.9.3 | Verified live for what it supports: discovery, health, Wi-Fi status and settings (read and write), DALI status, device status, memory, crash log, connections, DMX timing. It has no configuration, device log, clock, line types or inputs, and the tools say so. |
 
 ## Features that depend on firmware
 
@@ -66,7 +66,6 @@ hardware, and what is still to do.
 
 ## Not yet verified on hardware
 
-- Wi-Fi settings **writes** on the ADDICT (reads verified).
 - A network change **with** restart to a new IP or to DHCP (writes without restart
   verified).
 - DALI-2 push buttons and other input devices (none available; the configuration
@@ -81,6 +80,10 @@ hardware, and what is still to do.
   clamped the same way). SpektraPlus's xy conversion uses very wide primaries, so
   pure green or blue in a DT8 xy zone is usually out of range on real drivers.
   `dali_dt8_info` shows the flag and the point the driver used.
+
+- On an ADDICT in access point + station mode, the access point runs on the
+  station's channel (one radio): a different access-point channel is stored and
+  read back, but only used in access-point-only mode.
 
 ## Firmware issues found (to report)
 

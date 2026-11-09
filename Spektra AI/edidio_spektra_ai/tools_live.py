@@ -440,7 +440,8 @@ async def preview_wifi_settings(mode: str, station_ssid: str = "",
                                 ap_channel: int = 0) -> str:
     """ADDICT V3: set Wi-Fi mode ('ap' = access point only, 'ap_station' = access point
     + join a network), the station network and the access-point channel (1-13, 0
-    keeps it). keep_password=True keeps the stored station password. The device
+    keeps it; in ap_station mode the access point runs on the station's channel - one
+    radio - so a new channel is stored but only used in ap mode). keep_password=True keeps the stored station password. The device
     replies, then reconnects its Wi-Fi: if you are connected over that Wi-Fi the link
     drops for a few seconds (and for good if the new network is wrong - the access
     point stays up as a way back in). Returns a token."""
