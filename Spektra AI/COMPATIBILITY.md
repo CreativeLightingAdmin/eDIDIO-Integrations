@@ -53,6 +53,12 @@ hardware, and what is still to do.
 - Bench test (`tools/bench_test.py`): eDIDIO 1.6.3 over TLS, 60/60 with the
   reversible writes; ADDICT 3.9.3, 43 passed, 3 skipped (no device log, DALI
   status cache or SD card), over 3 runs in a row.
+- Tools on demand (`SPEKTRA_AI_TOOLS=dynamic`), over stdio with the MCP Python
+  client (protocol 2025-11-25): started with 31 tools (~2,800 tokens);
+  `load_tools` sent `notifications/tools/list_changed` and the refreshed list held
+  the group; `run_tool` ran DALI and SD tools on the bench controller. Claude
+  Desktop's handling of the change notice is not yet checked (`run_tool` covers
+  it either way).
 - Background event recorder: kept recording after the launching process exited,
   captured DALI frames, sensor events and connections, and stopped on request.
 - Live state, `run_command`, profile changes, live colour on DMX and DALI zones,

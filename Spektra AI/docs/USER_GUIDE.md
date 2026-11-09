@@ -91,6 +91,46 @@ When the server starts, the assistant is told what Spektra AI does and is pointe
 the capability guide (the `edidio://capability-guide` resource), so you don't need
 to explain the tools to it.
 
+### Smaller chats: load tools on demand
+
+The client sends every tool's definition to the model with **every message**. All
+126 Spektra AI tools come to about 18,000 tokens a message, before you've typed
+anything. That uses up your allowance and fills the conversation's working space
+sooner.
+
+To start each chat with just the essentials, add an `env` entry to the server's
+config:
+
+```json
+"spektra-ai": {
+  "command": "python",
+  "args": ["-m", "edidio_spektra_ai"],
+  "env": {"SPEKTRA_AI_TOOLS": "dynamic"}
+}
+```
+
+A chat then starts with the **core** group: connect, health, live state, play/stop,
+live colour, `run_command` and `confirm`. That's about 2,800 tokens. When a job
+needs more, the assistant loads a group itself:
+
+- **authoring** - sequences, themes, zones, schedules, calendar, lists
+- **devices** - inputs, outputs, logic, sensors, settings, network, Wi-Fi
+- **dali** - commissioning, groups, scenes, gear settings, DT8, DALI-2, RDM
+- **logs** - diagnostics, device and SD logs, events, notifications, recorder
+- **projects** - .spektra pull, sync, push, validate, diff
+
+> **You:** Show me the gear settings on line 1.
+>
+> **Assistant:** *(load_tools dali, then dali_gear_settings)* Address 0: power-on 254,
+> min 1, max 254, fade 0 s…
+
+A loaded group stays for the rest of the chat; a new chat starts again from core. If
+your client doesn't show newly loaded tools straight away, the assistant calls them
+through `run_tool`, which works in any client. You can also ask directly: "load the
+DALI tools".
+
+Leave the setting out (or use `all`) to have every tool in every chat.
+
 ## 3. Ideas to know first
 
 ### Reading is free; storing needs your yes

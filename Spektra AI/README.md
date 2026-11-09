@@ -247,6 +247,42 @@ python -m pip install -e .          # once, from this folder
 claude mcp add spektra-ai -- python -m edidio_spektra_ai
 ```
 
+### Load tools on demand (smaller chats)
+
+Every tool definition goes to the model with every message: all 126 cost about
+18,000 tokens a message. Set `SPEKTRA_AI_TOOLS=dynamic` and a chat starts with the
+`core` group only (31 tools, about 2,800 tokens). The model loads the rest when a
+job needs them, with `load_tools`:
+
+| Group | Tools | What |
+|---|---|---|
+| core | 27 (+4) | connect, health, live state, play/stop, live colour, run_command, confirm |
+| authoring | 12 | sequences, themes, zones, schedules, calendar, lists |
+| devices | 25 | inputs, outputs, logic, sensors, translations, burn-ins, settings, network, Wi-Fi |
+| dali | 29 | commissioning, groups, scenes, gear settings, DT8, DALI-2, RDM |
+| logs | 25 | diagnostics, device and SD logs, events, notifications, recorder |
+| projects | 8 | .spektra pull / sync / push / validate / diff, functionality statement |
+
+- `tool_groups` lists them, `load_tools` / `unload_tools` add or drop one, and
+  `run_tool` calls any tool by name.
+- Loading a group tells the client its tool list changed
+  (`notifications/tools/list_changed`, and the newer `subscriptions/listen` event).
+- A client that doesn't refresh still works: `load_tools` returns the definitions,
+  and `run_tool` calls them.
+- A loaded group stays loaded for the rest of the chat.
+
+In Claude Desktop:
+
+```json
+"spektra-ai": {
+  "command": "python",
+  "args": ["-m", "edidio_spektra_ai"],
+  "env": {"SPEKTRA_AI_TOOLS": "dynamic"}
+}
+```
+
+Without the variable (or with `all`) every tool is shown, as before.
+
 ## Testing
 
 ```bash

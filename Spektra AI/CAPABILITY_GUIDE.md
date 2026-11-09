@@ -94,6 +94,10 @@ The device also reports exact counts via `device_capabilities`.
 Reads run at once; anything the controller stores is preview_* -> confirm(token)
 and ends with a save. Indices are 0-based (List 1 = 0); replies show both.
 
+With SPEKTRA_AI_TOOLS=dynamic only the core tools are listed at the start: load a
+group first with load_tools (authoring, devices, dali, logs, projects; see
+tool_groups, unload_tools), or call any tool with run_tool(name, arguments).
+
 - **Find / connect**: discover_controllers, connect_controller (TLS on 443),
   connection_status, device_capabilities, get_device_settings, list_zones,
   get_zone_details, query_dmx_cache.

@@ -23,6 +23,7 @@ from .authoring import (
     compile_theme,
 )
 from .capability_guide import build_guide
+from . import toolsets
 from .controller import SpektraController, summarize_discovery
 from . import dali, event_log, notify, sync
 from .spektra_diff import diff, format_diff
@@ -46,6 +47,7 @@ server = MCPServer(
         "preview_* -> confirm(token); reads and live actions run at once. Indices are "
         "0-based (List 1 = 0). Read the 'edidio://capability-guide' resource first: "
         "tools by task, the command vocabulary, enums and limits."
+        + (toolsets.INSTRUCTIONS if toolsets.state.dynamic else "")
     ),
 )
 
@@ -979,10 +981,18 @@ async def dali_recall_scene(line: int, scene: int, group: int = -1,
 # Live operations, diagnostics, settings and list/IO/logic authoring.
 from . import tools_live  # noqa: E402,F401  (registers its tools on `server`)
 
+toolsets.install(server)   # tool groups (SPEKTRA_AI_TOOLS=dynamic loads them on demand)
+
+
+async def _shutdown():
+    """The client went away: stop watching and close the controller connection."""
+    await _controller.stop_events()
+    await _controller.disconnect()
+
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    server.run(transport="stdio")
+    toolsets.run_stdio(server, on_exit=_shutdown)
 
 
 if __name__ == "__main__":
