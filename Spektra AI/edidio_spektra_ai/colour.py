@@ -64,7 +64,7 @@ def parse_levels(colour, zone: dict) -> list:
     the zone's red/green/blue channels; other channels 0), or colour names: 'red',
     'warm white', 'red+white', 'orange', 'off' -> channel levels."""
     n = int(zone.get("numChannels") or 0)
-    if isinstance(colour, str) and colour.strip() and not colour.strip()[0] in "#0123456789":
+    if isinstance(colour, str) and colour.strip() and colour.strip()[0] not in "#0123456789":
         named = _named_levels(colour, zone, n)
         if named is None:
             raise ValueError(

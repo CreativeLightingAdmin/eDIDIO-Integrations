@@ -325,6 +325,8 @@ async def command_reference() -> str:
         "  dali_off | dali_max | dali_min | dali_fade_up | dali_fade_down | dali_step_up | "
         "dali_step_down {line, target}\n"
         "  dali_scene {line, target, scene 0-15}\n"
+        "  dt8_colour_temp {line, target, kelvin 1000-20000} (stored as mirek/4, so the "
+        "Kelvin is rounded; the reply shows what is sent)\n"
         "  dali_toggle | dali_min_max_toggle | dali_fade_long_press | dali_fade_up_with_min "
         "{line, target[, query address]}\n"
         "  dmx {line, channel 1-512, level} | dmx_broadcast {line, level} or {zone, level}\n"

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 import edidio_control_py.eDS10_ProtocolBuffer_pb2 as pb
 
+from .commands import kelvin_to_value
 from .spektra_file import DEVICE_SECTIONS, PROFILE_SECTIONS, SpektraProject, _is_configured
 
 # Firmware slot / value limits (see CAPABILITY_GUIDE.md; device also reports counts).
@@ -163,6 +164,13 @@ def _check_trigger_fits(item, mac, section, idx, out):
         for k in _TRIGGER_KEYS:
             v = cmd.get(k, 0)
             if isinstance(v, int) and not 0 <= v <= 255:
+                if k == "value" and cmd.get("commandtype") == 47 and 1000 <= v <= 20000:
+                    out.append(Issue(mac, section, idx, ERROR,
+                                     f"{path}.value = {v} looks like Kelvin, but DT8 colour "
+                                     "temperature (commandtype 47) stores mirek / 4: for "
+                                     f"{v} K use {kelvin_to_value(v)}. Firmware 1.6.3 refuses "
+                                     "the write; older firmware keeps only the low byte"))
+                    continue
                 out.append(Issue(mac, section, idx, ERROR,
                                  f"{path}.{k} = {v} does not fit the controller (0-255); "
                                  "firmware 1.6.3 refuses the write"))

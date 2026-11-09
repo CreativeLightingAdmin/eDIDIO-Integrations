@@ -11,6 +11,8 @@ Uses the same wire encoding as SpektraPlus's command editor:
   STEP_DOWN 4, MAX 5, MIN 6; scene n = 16 + n.
 - Spektra sequence/theme/schedule/pause and DMX zone fades carry the zone in
   ``zone`` (the app shows it as the value); RESUME carries it in ``zone`` too.
+- DT8 colour temperature (TriggerType 47) stores mirek / 4 in ``value`` (one byte);
+  the controller multiplies by 4 and sends the full 16-bit mirek to the gear.
 - Every index (list, input, output, sensor, schedule, logic, sequence, theme,
   profile, zone) is 0-based, as the firmware uses it. Show users index + 1.
 """
@@ -52,7 +54,21 @@ _SPEKTRA_ZONE = {  # code, target kind (sequence/theme index or none)
 _DALI_TOGGLES = {"dali_toggle": (21, 57), "dali_min_max_toggle": (22, 58),
                  "dali_fade_long_press": (31, 61), "dali_fade_up_with_min": (8, 56)}
 
-ACTIONS = sorted(["none", "dali_arc", "dali_scene", "dmx", "dmx_broadcast",
+DT8_COLOUR_TEMP = 47
+KELVIN_RANGE = (1000, 20000)
+
+
+def kelvin_to_value(kelvin: int) -> int:
+    """Kelvin -> the stored TriggerType 47 value (mirek / 4, 1-255)."""
+    return max(1, min(255, round(1_000_000 / kelvin / 4)))
+
+
+def value_to_kelvin(value: int) -> int:
+    """Stored TriggerType 47 value -> the Kelvin the controller sends (0 if none)."""
+    return round(1_000_000 / (value * 4)) if value > 0 else 0
+
+
+ACTIONS = sorted(["none", "dali_arc", "dali_scene", "dmx", "dmx_broadcast", "dt8_colour_temp",
                   "spektra_resume", "spektra_intensity", "user_level_recall",
                   *[f"dali_{k}" for k in _DALI_CMD], *_SIMPLE, *_SPEKTRA_ZONE, *_DALI_TOGGLES])
 
@@ -135,6 +151,10 @@ def build(spec) -> dict:
         t = dali_target(spec)
         out.update(commandtype=ocode if override else code, linemask=linemask(spec), target=t,
                    query=_int(spec, "query", 0, 63, t if t <= 63 else 0))
+    elif do == "dt8_colour_temp":
+        k = _int(spec, "kelvin", *KELVIN_RANGE)
+        out.update(commandtype=DT8_COLOUR_TEMP, linemask=linemask(spec),
+                   target=dali_target(spec), value=kelvin_to_value(k))
     elif do == "user_level_recall":
         out.update(commandtype=62 if override else 41, linemask=linemask(spec),
                    target=dali_target(spec), value=_int(spec, "user_level", 0, 255))
@@ -184,7 +204,8 @@ _CODE_NAMES = {0: "DALI arc", 54: "DALI arc (override)", 8: "DALI fade up with m
                12: "Start sequence", 13: "Stop sequence", 14: "Apply theme",
                16: "Start Spektra schedule", 35: "Pause Spektra", 36: "Resume Spektra",
                70: "Spektra intensity", 63: "DMX zone fade up", 64: "DMX zone fade down",
-               2: "DMX channel", 3: "DMX channel", 6: "DMX broadcast"}
+               2: "DMX channel", 3: "DMX channel", 6: "DMX broadcast",
+               45: "DT8 warmer", 46: "DT8 cooler", 47: "DT8 colour temperature"}
 _ONE_BASED = {9: "List", 10: "List", 11: "List", 30: "Profile", 48: "Logic",
               49: "Schedule", 50: "Schedule", 19: "Burn-in", 20: "Burn-in", 23: "Input",
               24: "Input", 26: "Output", 27: "Output", 28: "Output", 29: "Output",
@@ -217,7 +238,10 @@ def describe(cmd: dict | None) -> str:
         return f"DALI {name}{ov} -> {_dali_tgt(t)} {_lines(lm)}".strip()
     if c in (0, 54):
         return f"{_CODE_NAMES[c]} {v} -> {_dali_tgt(t)} {_lines(lm)}".strip()
-    if c in (8, 21, 22, 31, 41, 56, 57, 58, 61, 62):
+    if c == DT8_COLOUR_TEMP:
+        k = f"{value_to_kelvin(v)} K" if 1 <= v <= 255 else "invalid"
+        return f"{_CODE_NAMES[c]} {k} (value {v}) -> {_dali_tgt(t)} {_lines(lm)}".strip()
+    if c in (8, 21, 22, 31, 41, 45, 46, 56, 57, 58, 61, 62):
         return f"{_CODE_NAMES[c]} -> {_dali_tgt(t)} {_lines(lm)}".strip()
     if c in (2, 3):
         return f"DMX channel {t + (256 if c == 3 else 0)} = {v} on {_lines(lm)}"
