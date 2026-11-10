@@ -275,8 +275,15 @@ class SpektraController:
             reply = await self._read_spektra(SpektraTargetType.SEQUENCE, i)
             if reply.WhichOneof("payload") == "spektra_sequence":
                 s = reply.spektra_sequence
+                direction = ("cycle" if s.is_cycle_direction else
+                             "reverse" if s.is_reverse_direction else "")
                 out.append({"index": s.index, "title": s.title, "type": s.type,
-                            "colours": len(s.colours), "time_per_step": s.time_per_step})
+                            "colours": len(s.colours), "time_per_step": s.time_per_step,
+                            "time_per_step_unit": s.time_per_step_unit,
+                            "time_per_colour": s.time_per_colour,
+                            "time_per_colour_unit": s.time_per_colour_unit,
+                            "fade_ms": s.fade_time_by_10ms * 10, "range": s.range,
+                            "direction": direction})
             # an INDEX_OUT_OF_BOUNDS ack means an empty slot -> skip
         return out
 

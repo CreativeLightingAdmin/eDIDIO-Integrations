@@ -160,9 +160,13 @@ Animation types table), give 1-20 `colours` (each an array of channel values
 0-255, whose length must match the target zone's channels-per-light - read the
 zone first with `get_zone_details`), and set timing. `time_per_step` controls the
 animation speed (min 50 ms); `time_per_colour` controls how long each colour
-shows; each has a matching `_unit` (0=ms,1=s,2=min,3=hr). `transition` blends
-(0), snaps (1), or fades to black (2). Sequences auto-save to flash on the
-device. Index 0-143.
+shows on the chase types (simple/shadow chase, comet, twinkle, fireworks, fire,
+particle cannon; default 2 s); each has a matching `_unit` (0=ms,1=s,2=min,3=hr).
+The fade is added to both: a step lasts `time_per_step` + fade. `range` repeats
+the chase/build types over blocks of that many lights (0 = the whole zone);
+`background` sets the colour of unlit fixtures (first 3 channels only).
+`transition` blends (0), snaps (1), or fades to black (2). Sequences auto-save
+to flash on the device. Index 0-143.
 
 **Themes** (`create_theme`): a static palette of 1-20 `colours` on an index
 0-15. Colours repeat across fixtures if there are fewer colours than lights.

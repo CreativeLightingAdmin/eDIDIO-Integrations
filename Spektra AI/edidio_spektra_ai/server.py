@@ -151,16 +151,43 @@ async def list_zones() -> str:
 
 @server.tool()
 async def list_sequences() -> str:
-    """Show the sequences stored on the controller (index, title, animation type)."""
+    """Show the sequences stored on the controller (index, title, type, timing)."""
     try:
         seqs = await _controller.list_sequences()
     except Exception as err:  # noqa: BLE001
         return f"Error: {err}"
     if not seqs:
         return "No sequences are stored."
-    return "Sequences:\n" + "\n".join(
-        f"- [{s['index']}] {s['title'] or '(untitled)'} - type {s['type']}, "
-        f"{s['colours']} colour(s)" for s in seqs)
+    return "Sequences:\n" + "\n".join(_sequence_line(s) for s in seqs)
+
+
+_UNIT_MS = {0: 1, 1: 1000, 2: 60_000, 3: 3_600_000}
+
+
+def _sequence_line(s: dict) -> str:
+    from .authoring import COLOUR_TIMER_TYPES, RANGE_TYPES, SEQUENCE_TYPE_LABELS
+    t = s["type"]
+    step = s["time_per_step"] * _UNIT_MS.get(s.get("time_per_step_unit", 0), 1000)
+    fade = s.get("fade_ms", 0)
+    bits = [f"step {_ms_text(step)}" + (f" + {_ms_text(fade)} fade" if fade else "")]
+    if t in COLOUR_TIMER_TYPES:
+        colour = s.get("time_per_colour", 0) * _UNIT_MS.get(s.get("time_per_colour_unit", 0), 1000)
+        bits.append(f"colour {_ms_text(colour)}")
+    if t in RANGE_TYPES and s.get("range"):
+        bits.append(f"range {s['range']}")
+    if s.get("direction"):
+        bits.append(s["direction"])
+    return (f"- [{s['index']}] {s['title'] or '(untitled)'} - "
+            f"{SEQUENCE_TYPE_LABELS.get(t, f'type {t}')}, {s['colours']} colour(s), "
+            + ", ".join(bits))
+
+
+def _ms_text(ms: int) -> str:
+    if ms >= 60_000 and ms % 60_000 == 0:
+        return f"{ms // 60_000} min"
+    if ms >= 1000 and ms % 100 == 0:
+        return f"{ms / 1000:g} s"
+    return f"{ms} ms"
 
 
 @server.tool()
@@ -311,8 +338,9 @@ def _preview(compile_fn, spec):
 @server.tool()
 async def preview_sequence(spec: dict) -> str:
     """Preview a sequence to author. spec: {index, type (e.g. 'rotate'), colours
-    [[r,g,b],...], title, time_per_step_ms, fade_ms}. fade_ms cross-fades between
-    steps (0 = snap; must be <= time_per_step_ms). Returns a preview + confirm token."""
+    [[r,g,b],...], title, time_per_step_ms, fade_ms, time_per_colour_ms (chases;
+    default 2000), range (lights per repeat, 0 = all), background [r,g,b], reverse,
+    cycle}. Each step lasts time_per_step_ms + fade_ms. Returns a preview + token."""
     return _preview(compile_sequence, spec)
 
 

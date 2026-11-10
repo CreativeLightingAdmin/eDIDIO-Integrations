@@ -41,6 +41,13 @@ SEQUENCE_TYPE_NAMES = {
     "ramp_up": 10, "ramp_down": 11, "static": 12, "radial_rotate": 13,
     "radial_build": 14, "particle_cannon": 15,
 }
+# Which fields each type uses (firmware colour_sequences.c; the same table as
+# SpektraPlus's sequenceFields.ts TYPE_BEHAVIOUR).
+COLOUR_TIMER_TYPES = {1, 2, 3, 5, 8, 9, 15}     # colour from the colour timer
+RANGE_TYPES = {1, 2, 3, 6, 7, 14, 15}           # repeat over blocks of `range` lights
+BACKGROUND_TYPES = {1, 2, 3, 6, 8, 10, 11, 14, 15}
+DEFAULT_TIME_PER_COLOUR_MS = 2000               # SpektraPlus's preset value
+SEQUENCE_TYPE_LABELS = {v: k for k, v in SEQUENCE_TYPE_NAMES.items()}
 TRANSITION_NAMES = {"blend": SpektraTransitionType.BLEND, "snap": SpektraTransitionType.SNAP,
                     "fade_to_black": SpektraTransitionType.FADE_TO_BLACK}
 TIME_UNIT_NAMES = {"ms": 0, "milliseconds": 0, "s": 1, "sec": 1, "seconds": 1,
@@ -115,17 +122,39 @@ def compile_sequence(spec: dict, *, message_id: int = 1):
     step_ms = int(spec.get("time_per_step_ms", spec.get("step_ms", 500)))
     if step_ms and step_ms < SPEKTRA_MIN_MS_PER_STEP:
         raise SpecError(f"time_per_step_ms {step_ms} is below the {SPEKTRA_MIN_MS_PER_STEP}ms minimum")
-    colour_ms = int(spec.get("time_per_colour_ms", 0))
 
-    # Fade/cross-fade time between steps (0 = instant/snap). Stored on the device
-    # in 10ms units, so we round to the nearest 10ms.
+    # Only the colour-timer types read time_per_colour. Left at 0, the firmware uses its
+    # 50 ms minimum, so a chase changes colour every 50 ms; default to SpektraPlus's 2 s.
+    colour_ms = int(spec.get("time_per_colour_ms", DEFAULT_TIME_PER_COLOUR_MS))
+    if colour_ms < SPEKTRA_MIN_MS_PER_STEP:
+        raise SpecError(f"time_per_colour_ms {colour_ms} is below the "
+                        f"{SPEKTRA_MIN_MS_PER_STEP}ms minimum")
+
+    # Fade between steps (0 = snap), stored in 10 ms units. The firmware ADDS it to both
+    # timers: each step lasts time_per_step_ms + fade_ms (fade first, then the hold).
     fade_ms = int(spec.get("fade_ms", spec.get("fade_time_ms", 0)))
     if fade_ms < 0:
         raise SpecError("fade_ms must be >= 0")
-    if fade_ms and step_ms and fade_ms > step_ms:
-        raise SpecError(f"fade_ms {fade_ms} exceeds time_per_step_ms {step_ms}; "
-                        "the fade must fit within a step")
     fade_by_10ms = round(fade_ms / 10)
+
+    # Light range: the chase/build types repeat over blocks of `range` lights (0 = the
+    # whole zone; the controller caps it at the zone's light count).
+    light_range = int(spec.get("range", 0))
+    if not 0 <= light_range <= 512:
+        raise SpecError(f"range {light_range} is outside 0-512 (0 = the whole zone)")
+
+    # Background colour: the firmware reads only the first 3 channels (args[0..2]);
+    # args[3] is the comet tail length, so it is left at 0 (the default tail).
+    bg = spec.get("background")
+    args = None
+    if bg is not None:
+        if not isinstance(bg, list) or not 1 <= len(bg) <= 3:
+            raise SpecError("'background' must be 1-3 channel values, e.g. [0,0,40] "
+                            "(the controller uses the first 3 channels only)")
+        vals = [int(v) for v in bg]
+        if any(not 0 <= v <= 254 for v in vals):
+            raise SpecError("background values must be 0-254 (255 means 'not set')")
+        args = vals + [0] * (5 - len(vals))
 
     frame = EdidioClient.create_spektra_sequence_message(
         message_id, index=index, seq_type=seq_type, colours=colours,
@@ -133,17 +162,36 @@ def compile_sequence(spec: dict, *, message_id: int = 1):
         time_per_step=step_ms, time_per_step_unit=0,
         time_per_colour=colour_ms, time_per_colour_unit=0,
         fade_time_by_10ms=fade_by_10ms,
+        range=light_range,
         title=title,
         is_reverse_direction=1 if spec.get("reverse") else 0,
         is_cycle_direction=1 if spec.get("cycle") else 0,
+        args=args,
     )
     type_name = next((k for k, v in SEQUENCE_TYPE_NAMES.items() if v == seq_type), seq_type)
     fade_txt = f"{fade_ms}ms fade" if fade_ms else "no fade (snap)"
+    parts = [f"step {step_ms}ms", fade_txt]
+    if fade_ms:
+        parts.append(f"each step lasts {step_ms + fade_ms}ms (step + fade)")
+    notes = []
+    if seq_type in COLOUR_TIMER_TYPES:
+        parts.append(f"each colour {colour_ms + fade_ms}ms")
+    elif "time_per_colour_ms" in spec:
+        notes.append(f"`{type_name}` takes its colours from the steps, so time_per_colour_ms "
+                     "has no effect")
+    if light_range:
+        parts.append(f"range {light_range} lights")
+        if seq_type not in RANGE_TYPES:
+            notes.append(f"`{type_name}` does not use range")
+    if args is not None:
+        parts.append(f"background {vals}")
+        if seq_type not in BACKGROUND_TYPES:
+            notes.append(f"`{type_name}` does not show the background colour")
     preview = (
         f"**Sequence {index}** \"{title or '(untitled)'}\" - type `{type_name}`, "
-        f"{len(colours)} colour(s): {_colour_names(colours)}; step {step_ms}ms; "
-        f"{fade_txt}; transition {spec.get('transition', 'blend')}. "
-        "Saves to the controller."
+        f"{len(colours)} colour(s): {_colour_names(colours)}; {'; '.join(parts)}; "
+        f"transition {spec.get('transition', 'blend')}. Saves to the controller."
+        + "".join(f"\nNOTE: {n}." for n in notes)
     )
     return [frame], preview
 

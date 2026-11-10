@@ -75,7 +75,10 @@ def find_fade_time_best_fit(fade_by_10ms: int) -> tuple:
 
 
 def _map_time_unit(unit: int) -> int:
-    return {0: _TIME_MS, 1: _TIME_S, 2: _TIME_MIN}.get(unit, _TIME_S)
+    """Wire time unit -> .spektra unit (the same numbers: 0 ms, 1 s, 2 min, 3 hr).
+    Unknown values read as seconds, as SpektraPlus's mapTimeUnit does. 0 is
+    milliseconds, not "unset": proto3 sends no field for 0, and the decoder gives 0."""
+    return {0: _TIME_MS, 1: _TIME_S, 2: _TIME_MIN, 3: _TIME_HR}.get(unit, _TIME_S)
 
 
 def _colour(pb_colour) -> dict:
@@ -158,9 +161,11 @@ def sequence_to_dict(pb) -> dict:
         "range": pb.range or 0,
         "sequenceType": pb.type,
         "timePerColour": pb.time_per_colour or 0,
-        "timePerColourUnit": _map_time_unit(pb.time_per_colour_unit or 1),
+        # Not `unit or 1`: that turned milliseconds (0) into seconds, so a read and
+        # write made a sequence 1000x slower. SpektraPlus's `?? 1` keeps 0.
+        "timePerColourUnit": _map_time_unit(pb.time_per_colour_unit),
         "timePerStep": pb.time_per_step or 0,
-        "timePerStepUnit": _map_time_unit(pb.time_per_step_unit or 1),
+        "timePerStepUnit": _map_time_unit(pb.time_per_step_unit),
         "transitionType": pb.transition or 0,
         "presetSequenceID": None,
         "uuid": str(_uuid.uuid4()),   # app render key; transient in the sync hash
