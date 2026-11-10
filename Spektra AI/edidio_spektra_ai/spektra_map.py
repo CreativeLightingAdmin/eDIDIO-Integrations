@@ -88,6 +88,16 @@ def _colour(pb_colour) -> dict:
 
 # --- public mappers (pb message -> .spektra dict) ---
 
+def _sub(parent, name):
+    """A trigger submessage, or None when the controller did not send one. Python
+    protobuf returns an empty default for an unset field (type 0 = a DALI arc), where
+    SpektraPlus's decoder returns undefined and maps it to NO_COMMAND."""
+    try:
+        return getattr(parent, name) if parent.HasField(name) else None
+    except (ValueError, AttributeError):   # not a message field / not a protobuf object
+        return getattr(parent, name, None)
+
+
 def trigger_to_dict(pb) -> dict:
     """TriggerMessage -> EdidioTrigger command dict."""
     NO_COMMAND = 254
@@ -117,9 +127,9 @@ def schedule_to_dict(pb) -> dict:
         "monthsMask": pb.repeat_month_bitmask or 0,
         "weekdaysMask": pb.repeat_day_bitmask or 0,
         "yearly": pb.yearly,
-        "startEvent": event(pb.start_trigger, pb.astro_start,
+        "startEvent": event(_sub(pb, "start_trigger"), pb.astro_start,
                             pb.start_time, pb.start_offset_is_before),
-        "endEvent": event(pb.end_trigger, pb.astro_end,
+        "endEvent": event(_sub(pb, "end_trigger"), pb.astro_end,
                           pb.end_time, pb.end_offset_is_before),
         "endEventIsActive": _end_active(pb),
         "error": None,
@@ -359,8 +369,8 @@ def input_to_dict(pb) -> dict:
     """IOInputMessage -> EdidioInput dict."""
     return {
         "name": f"Input {pb.index + 1}", "index": pb.index, "type": pb.button_state,
-        "shortLowAction": trigger_to_dict(pb.short_press),
-        "longHighAction": trigger_to_dict(pb.long_press), "error": None,
+        "shortLowAction": trigger_to_dict(_sub(pb, "short_press")),
+        "longHighAction": trigger_to_dict(_sub(pb, "long_press")), "error": None,
     }
 
 
@@ -380,11 +390,11 @@ def logic_to_dict(pb, index: int | None = None) -> dict:
     idx = index if index is not None else pb.index
     return {
         "name": f"Logic {idx + 1}",
-        "comparisonObject": trigger_to_dict(pb.comparison_object),
+        "comparisonObject": trigger_to_dict(_sub(pb, "comparison_object")),
         "comparisonType": pb.comparison_type, "comparisonValue": pb.comparison_value,
         "isEnabled": True, "index": idx,
-        "trueAction": trigger_to_dict(pb.actionA),
-        "falseAction": trigger_to_dict(pb.actionB), "error": None,
+        "trueAction": trigger_to_dict(_sub(pb, "actionA")),
+        "falseAction": trigger_to_dict(_sub(pb, "actionB")), "error": None,
     }
 
 
@@ -404,7 +414,7 @@ def list_step_to_dict(pb, index: int = 0) -> dict:
     secs = pb.time_seconds
     duration, unit = duration_and_unit(secs)
     return {"index": getattr(pb, "step_index", index),
-            "action": trigger_to_dict(pb.action),
+            "action": trigger_to_dict(_sub(pb, "action")),
             "duration": duration, "timeUnit": unit, "time_until_next": secs}
 
 
@@ -523,9 +533,11 @@ def lists_write_order(changed: list, all_lists: list) -> list:
 # --- sensors + DALI inputs (line/version helpers) ---------------------------
 
 def dali_line_mask_to_number(mask) -> int:
-    """Single-bit line bitmask (1/2/4/8) -> 1-based line number (1..4); 0 if none."""
+    """Single-bit line bitmask (1/2/4/8) -> 1-based line number (1..4). Anything else
+    (0 = unprogrammed, several bits, above line 4) reads as line 1, exactly as
+    SpektraPlus does - needed for sync-hash parity."""
     mask = int(mask or 0)
-    return mask.bit_length() if mask > 0 else 0    # 1->1, 2->2, 4->3, 8->4
+    return {1: 1, 2: 2, 4: 3, 8: 4}.get(mask, 1)
 
 
 def line_number_to_mask(n) -> int:
@@ -563,9 +575,9 @@ def sensor_to_dict(pb) -> dict:
         "disableTimer": pb.disable_values or 0,             # seconds
         "prgBtnOne": None, "prgBtnTwo": None,
         "motionOnly": bool(pb.motion_only),
-        "detectionTrigger": trigger_to_dict(pb.detection_trigger),
-        "warningTrigger": trigger_to_dict(pb.warning_trigger),
-        "idleTrigger": trigger_to_dict(pb.idle_trigger),
+        "detectionTrigger": trigger_to_dict(_sub(pb, "detection_trigger")),
+        "warningTrigger": trigger_to_dict(_sub(pb, "warning_trigger")),
+        "idleTrigger": trigger_to_dict(_sub(pb, "idle_trigger")),
         "groupedWithIndexes": grouped,                      # legacy grouping (< 1.3.0)
         # Phase 3 fields exist only on newer protobufs; default when absent.
         "coopGroup": getattr(pb, "coop_group", 0) or 0,
@@ -618,8 +630,8 @@ def daliinput_to_dict(pb) -> dict:
         "type": pb.button_state, "address": pb.address or 0,
         "instance": pb.instance or 0,
         "line": dali_line_mask_to_number(pb.dali_line or 0), "isActive": True,
-        "shortOrLowAction": trigger_to_dict(pb.short_press),
-        "longOrHighAction": trigger_to_dict(pb.long_press), "error": None,
+        "shortOrLowAction": trigger_to_dict(_sub(pb, "short_press")),
+        "longOrHighAction": trigger_to_dict(_sub(pb, "long_press")), "error": None,
     }
 
 

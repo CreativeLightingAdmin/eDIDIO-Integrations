@@ -288,7 +288,9 @@ def test_list_state_read_like_spektraplus():
 def test_dali_line_helpers_inverse():
     for n in (1, 2, 3, 4):
         assert m.dali_line_mask_to_number(m.line_number_to_mask(n)) == n
-    assert m.line_number_to_mask(0) == 0 and m.dali_line_mask_to_number(0) == 0
+    assert m.line_number_to_mask(0) == 0
+    # As SpektraPlus: unprogrammed (0) and not-a-single-line masks read as line 1.
+    assert [m.dali_line_mask_to_number(x) for x in (0, 3, 16, 255)] == [1, 1, 1, 1]
 
 
 def test_version_gte():

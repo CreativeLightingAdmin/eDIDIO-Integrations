@@ -1,0 +1,254 @@
+[
+ {
+  "mapper": "mapPbTriggerToEdidioTrigger",
+  "message": "TriggerMessage",
+  "mode": "empty",
+  "index": null,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbTriggerToEdidioTrigger",
+  "message": "TriggerMessage",
+  "mode": "filled",
+  "index": null,
+  "bytes": "CAEQAxgEIAUoBjAH"
+ },
+ {
+  "mapper": "mapPbTriggerToEdidioTrigger",
+  "message": "TriggerMessage",
+  "mode": "max",
+  "index": null,
+  "bytes": "CP4BEP8BGP8BIP8BKP8BMP8B"
+ },
+ {
+  "mapper": "mapPbAlarmToEdidioSchedule",
+  "message": "AlarmMessage",
+  "mode": "empty",
+  "index": null,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbAlarmToEdidioSchedule",
+  "message": "AlarmMessage",
+  "mode": "filled",
+  "index": null,
+  "bytes": "CAIQARoECAUQBiIECAgQCSoMCAEQDBgNIA4oDzAQMgwIARATGBQgFSgWMBc4AUABSAFQG1gcYAFoAXAB"
+ },
+ {
+  "mapper": "mapPbAlarmToEdidioSchedule",
+  "message": "AlarmMessage",
+  "mode": "max",
+  "index": null,
+  "bytes": "CP8BEAEaBgj/ARD/ASIGCP8BEP8BKhII/gEQ/wEY/wEg/wEo/wEw/wEyEgj+ARD/ARj/ASD/ASj/ATD/ATgCQAJIBFD/AVj/AWABaAFwAQ=="
+ },
+ {
+  "mapper": "mapPbSequenceToEdidioSequenceData",
+  "message": "SpektraSequenceConfigMessage",
+  "mode": "empty",
+  "index": null,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbSequenceToEdidioSequenceData",
+  "message": "SpektraSequenceConfigMessage",
+  "mode": "filled",
+  "index": null,
+  "bytes": "CAIQAxgBIAUoBjABOAhAAUgKUgILC1gMYA1oDnAPegROYW1lgAEBigEECgITE4oBBAoCFBSSAQIVFQ=="
+ },
+ {
+  "mapper": "mapPbSequenceToEdidioSequenceData",
+  "message": "SpektraSequenceConfigMessage",
+  "mode": "max",
+  "index": null,
+  "bytes": "CP8BEP8BGAIg/wEo/wEwAzj/AUADSP8BUgT/Af8BWP8BYP8BaP8BcP8BehROTk5OTk5OTk5OTk5OTk5OTk5OToABAYoBBgoE/wH/AYoBBgoE/wH/AZIBBP8B/wE="
+ },
+ {
+  "mapper": "mapPbThemeToEdidioThemeData",
+  "message": "SpektraThemeConfigMessage",
+  "mode": "empty",
+  "index": null,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbThemeToEdidioThemeData",
+  "message": "SpektraThemeConfigMessage",
+  "mode": "filled",
+  "index": null,
+  "bytes": "CAISAgMDGgROYW1lIgQKAgYGIgQKAgcH"
+ },
+ {
+  "mapper": "mapPbThemeToEdidioThemeData",
+  "message": "SpektraThemeConfigMessage",
+  "mode": "max",
+  "index": null,
+  "bytes": "CP8BEgT/Af8BGhROTk5OTk5OTk5OTk5OTk5OTk5OTiIGCgT/Af8BIgYKBP8B/wE="
+ },
+ {
+  "mapper": "mapPbInputToEdidioInput",
+  "message": "IOInputMessage",
+  "mode": "empty",
+  "index": null,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbInputToEdidioInput",
+  "message": "IOInputMessage",
+  "mode": "filled",
+  "index": null,
+  "bytes": "CAIQARoMCAEQBhgHIAgoCTAKIgwIARANGA4gDygQMBE="
+ },
+ {
+  "mapper": "mapPbInputToEdidioInput",
+  "message": "IOInputMessage",
+  "mode": "max",
+  "index": null,
+  "bytes": "CP8BEIEBGhII/gEQ/wEY/wEg/wEo/wEw/wEiEgj+ARD/ARj/ASD/ASj/ATD/AQ=="
+ },
+ {
+  "mapper": "mapPbOutputToEdidioOutput",
+  "message": "IOOutputMessage",
+  "mode": "empty",
+  "index": null,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbOutputToEdidioOutput",
+  "message": "IOOutputMessage",
+  "mode": "filled",
+  "index": null,
+  "bytes": "CAIQAxgEIAE="
+ },
+ {
+  "mapper": "mapPbOutputToEdidioOutput",
+  "message": "IOOutputMessage",
+  "mode": "max",
+  "index": null,
+  "bytes": "CP8BEP8BGP8BIIEB"
+ },
+ {
+  "mapper": "mapPbLogicToEdidioLogicAction",
+  "message": "LogicMessage",
+  "mode": "empty",
+  "index": 2,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbLogicToEdidioLogicAction",
+  "message": "LogicMessage",
+  "mode": "filled",
+  "index": 2,
+  "bytes": "CAIQARoMCAEQBhgHIAgoCTAKIAsoATIMCAEQDxgQIBEoEjATOgwIARAWGBcgGCgZMBo="
+ },
+ {
+  "mapper": "mapPbLogicToEdidioLogicAction",
+  "message": "LogicMessage",
+  "mode": "max",
+  "index": 2,
+  "bytes": "CP8BEAEaEgj+ARD/ARj/ASD/ASj/ATD/ASD/ASgIMhII/gEQ/wEY/wEg/wEo/wEw/wE6Egj+ARD/ARj/ASD/ASj/ATD/AQ=="
+ },
+ {
+  "mapper": "mapPbSensorToEdidioSensor",
+  "message": "SensorMessage",
+  "mode": "empty",
+  "index": null,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbSensorToEdidioSensor",
+  "message": "SensorMessage",
+  "mode": "filled",
+  "index": null,
+  "bytes": "CAIQAxgEIAUoBjAHOAhACUgKUAtYDGANaA5wD3gQgAERiAESkAETmAEUoAEBqgEMCAEQGBgZIBooGzAcsgEMCAEQHxggICEoIjAjugEMCAEQJhgnICgoKTAq"
+ },
+ {
+  "mapper": "mapPbSensorToEdidioSensor",
+  "message": "SensorMessage",
+  "mode": "max",
+  "index": null,
+  "bytes": "CP8BEP8BGP8BIP8BKP8BMP8BOP8BQP8BSP8BUP8BWP8BYP8BaP8BcP8BeP8BgAH/AYgB/wGQAf8BmAH/AaABAaoBEgj+ARD/ARj/ASD/ASj/ATD/AbIBEgj+ARD/ARj/ASD/ASj/ATD/AboBEgj+ARD/ARj/ASD/ASj/ATD/AQ=="
+ },
+ {
+  "mapper": "mapPbDaliInputToEdidioDALIInput",
+  "message": "DALIInputMessage",
+  "mode": "empty",
+  "index": null,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbDaliInputToEdidioDALIInput",
+  "message": "DALIInputMessage",
+  "mode": "filled",
+  "index": null,
+  "bytes": "CAIQAxgEIAEqDAgBEAgYCSAKKAswDDIMCAEQDxgQIBEoEjATOBQ="
+ },
+ {
+  "mapper": "mapPbDaliInputToEdidioDALIInput",
+  "message": "DALIInputMessage",
+  "mode": "max",
+  "index": null,
+  "bytes": "CP8BEP8BGP8BIIEBKhII/gEQ/wEY/wEg/wEo/wEw/wEyEgj+ARD/ARj/ASD/ASj/ATD/ATj/AQ=="
+ },
+ {
+  "mapper": "mapPbSpektraSettingsToEdidioZone",
+  "message": "SpektraSettingMessage",
+  "mode": "empty",
+  "index": null,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbSpektraSettingsToEdidioZone",
+  "message": "SpektraSettingMessage",
+  "mode": "filled",
+  "index": null,
+  "bytes": "CAIQAxgEIAUoBjAHOgIICEABSgIKClABXQAAAD8="
+ },
+ {
+  "mapper": "mapPbSpektraSettingsToEdidioZone",
+  "message": "SpektraSettingMessage",
+  "mode": "max",
+  "index": null,
+  "bytes": "CP8BEP8BGP8BIP8BKP8BMP8BOgT/Af8BQP4BSgT/Af8BUAFdAACAPw=="
+ },
+ {
+  "mapper": "mapPbTranslationToEdidioControlTranslation",
+  "message": "DMXTranslationObject",
+  "mode": "empty",
+  "index": 1,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbTranslationToEdidioControlTranslation",
+  "message": "DMXTranslationObject",
+  "mode": "filled",
+  "index": 1,
+  "bytes": "CAIQAxgEIAUqAgYGOAdAAUgB"
+ },
+ {
+  "mapper": "mapPbTranslationToEdidioControlTranslation",
+  "message": "DMXTranslationObject",
+  "mode": "max",
+  "index": 1,
+  "bytes": "CP8BEP8BGP8BIP8BKgT/Af8BOP8BQAFIAQ=="
+ },
+ {
+  "mapper": "mapPbBurnInToEdidioBurnIn",
+  "message": "BurnInMessage",
+  "mode": "empty",
+  "index": 4,
+  "bytes": ""
+ },
+ {
+  "mapper": "mapPbBurnInToEdidioBurnIn",
+  "message": "BurnInMessage",
+  "mode": "filled",
+  "index": 4,
+  "bytes": "CAIQAxgEIAUoBjAHOgYICRAKGAs="
+ },
+ {
+  "mapper": "mapPbBurnInToEdidioBurnIn",
+  "message": "BurnInMessage",
+  "mode": "max",
+  "index": 4,
+  "bytes": "CP8BEP8BGP8BIP8BKP8BMP8BOgkI/wEQ/wEY/wE="
+ }
+]
