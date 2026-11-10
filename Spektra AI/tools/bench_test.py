@@ -244,7 +244,7 @@ async def writes(b: Bench, a) -> None:
 
 def write_report(b: Bench, a, path: Path, started: str, fw: str) -> None:
     c = b.counts()
-    rows = [f"# Spektra AI bench test", "",
+    rows = ["# Spektra AI bench test", "",
             f"- Controller: {a.host} ({'TLS' if a.tls else 'TCP'} {a.port}), firmware {fw}",
             f"- Run: {started}, writes {'on' if a.writes else 'off'}",
             f"- Result: {c['PASS']} passed, {c['FAIL']} failed, {c['SKIP']} skipped", "",

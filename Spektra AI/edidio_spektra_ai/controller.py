@@ -107,6 +107,9 @@ class SpektraController:
         self._events: EventStream | None = None
         self.notifications = NotificationManager()
         self._deadline_task = None
+        # Goes up whenever the connection changes (connect, reconnect or disconnect),
+        # so a preview made on one connection cannot be confirmed on another.
+        self.generation = 0
 
     # --- connection ---
     @property
@@ -114,6 +117,7 @@ class SpektraController:
         return self._client is not None and self._client.connected
 
     async def connect(self, host: str, port: int = 23, use_tls: bool = False):
+        self.generation += 1
         if self._client is not None:
             await self._client.disconnect()
         if use_tls and port == 23:
@@ -138,6 +142,7 @@ class SpektraController:
         return self.connected
 
     async def disconnect(self):
+        self.generation += 1
         if self._client is not None:
             await self._client.disconnect()
             self._client = None

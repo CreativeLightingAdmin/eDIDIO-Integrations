@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+import time
 from datetime import datetime
 
 from mcp.server.mcpserver import MCPServer
@@ -69,11 +70,38 @@ def _slots_hint(err) -> str:
     return ""
 
 
+# A preview is confirmed on the connection it was made on, and soon: it was built
+# from what the controller held then, and its frames carry that connection's ids.
+TOKEN_TTL_S = 15 * 60
+
+
 def _new_token(messages, preview, on_success=None):
+    now = time.monotonic()
+    for t in [t for t, p in _pending.items() if now - p["made"] > TOKEN_TTL_S]:
+        del _pending[t]                       # forget expired previews
     token = secrets.token_hex(4)
-    _pending[token] = {"messages": messages, "preview": preview,
-                       "on_success": on_success}
+    connected = _controller.connected
+    _pending[token] = {"messages": messages, "preview": preview, "on_success": on_success,
+                       "made": now,
+                       # None = built offline (e.g. a sequence spec): not tied to a controller
+                       "host": _controller.host if connected else None,
+                       "generation": _controller.generation if connected else None}
     return token
+
+
+def _token_problem(pending) -> str:
+    """Why a pending preview may not be confirmed now, or '' if it may."""
+    age = time.monotonic() - pending["made"]
+    if age > TOKEN_TTL_S:
+        return (f"This preview is {int(age // 60)} minutes old (previews last "
+                f"{TOKEN_TTL_S // 60}); the controller may have changed since. "
+                "Make a fresh preview.")
+    if pending["generation"] is not None and (
+            not _controller.connected or pending["generation"] != _controller.generation):
+        now = _controller.host if _controller.connected else "no controller"
+        return (f"This preview was made on {pending['host']} on an earlier connection "
+                f"(connected now: {now}). Nothing was written; make a fresh preview.")
+    return ""
 
 
 async def _do(action, ok):
@@ -112,8 +140,12 @@ async def discover_controllers() -> str:
 @server.tool()
 async def connect_controller(host: str, port: int = 23, use_tls: bool = False) -> str:
     """Connect to an eDIDIO controller by IP/hostname (port 23 TCP, 443 TLS)."""
-    return await _do(lambda: _controller.connect(host, port, use_tls),
-                     f"Connected to {host}.")
+    dropped = sum(1 for p in _pending.values() if p["generation"] is not None)
+    out = await _do(lambda: _controller.connect(host, port, use_tls), f"Connected to {host}.")
+    if dropped:
+        out += (f" {dropped} unconfirmed preview(s) from the previous connection can no "
+                "longer be confirmed.")
+    return out
 
 
 @server.tool()
@@ -387,6 +419,9 @@ async def confirm(token: str) -> str:
     pending = _pending.pop(token, None)
     if pending is None:
         return "Unknown or already-used token. Generate a fresh preview first."
+    problem = _token_problem(pending)
+    if problem:
+        return problem
     # Special action: a multi-step job (e.g. change line types + reboot + reconnect).
     if pending.get("runner"):
         try:

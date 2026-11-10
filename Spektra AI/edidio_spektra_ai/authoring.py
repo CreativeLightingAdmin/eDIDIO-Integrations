@@ -41,8 +41,8 @@ SEQUENCE_TYPE_NAMES = {
     "ramp_up": 10, "ramp_down": 11, "static": 12, "radial_rotate": 13,
     "radial_build": 14, "particle_cannon": 15,
 }
-# Which fields each type uses (firmware colour_sequences.c; the same table as
-# SpektraPlus's sequenceFields.ts TYPE_BEHAVIOUR).
+# Which fields each type uses (measured on a controller; SpektraPlus uses the same
+# table).
 COLOUR_TIMER_TYPES = {1, 2, 3, 5, 8, 9, 15}     # colour from the colour timer
 RANGE_TYPES = {1, 2, 3, 6, 7, 14, 15}           # repeat over blocks of `range` lights
 BACKGROUND_TYPES = {1, 2, 3, 6, 8, 10, 11, 14, 15}
@@ -117,7 +117,7 @@ def _colour_names(colours):
 # --- sequences -------------------------------------------------------------
 
 # The controller stores step and colour times as 16-bit values with a unit
-# (colour.h: uint16_t time_per_step + time_per_step_unit); 1.6.3 refuses a value
+# (a 16-bit time_per_step plus time_per_step_unit); 1.6.3 refuses a value
 # over 65535. So a time is sent in the smallest unit it fits in.
 _UNIT_MS = {0: 1, 1: 1000, 2: 60_000, 3: 3_600_000}
 _UNIT_WORD = {0: "ms", 1: "s", 2: "min", 3: "h"}

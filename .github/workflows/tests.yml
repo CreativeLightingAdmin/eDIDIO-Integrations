@@ -51,6 +51,14 @@ jobs:
             "paho-mqtt>=2.0" "pymodbus==3.8.6" "python-osc>=1.8" "mido>=1.3" \
             "mcp>=2.0" "requests>=2.28"
 
+      - name: Lint Spektra AI
+        # Pinned to the version used locally, so a ruff release cannot fail the build
+        # with new default rules.
+        working-directory: eDIDIO-Integrations/Spektra AI
+        run: |
+          python -m pip install "ruff==0.7.0"
+          ruff check edidio_spektra_ai tests tools
+
       - name: Run all suites
         working-directory: eDIDIO-Integrations
         run: bash ./run-all-tests.sh

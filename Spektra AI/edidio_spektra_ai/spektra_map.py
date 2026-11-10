@@ -720,6 +720,10 @@ def zone_to_dict(pb) -> dict:
         "protocol": pb.protocol or 0,
         "startAddress": pb.start_address or 0,
         "unscheduledBehaviourType": pb.unscheduled_behaviour or 0,
+        # `or 1.0` (not SpektraPlus's `?? 1.0`) is deliberate: the firmware stores any
+        # factor below its minimum, 0 included, as 1.0, so a controller
+        # never holds 0; a 0 can only come from firmware without the field, which runs at
+        # 1.0. The sync canon clamps the same way (sync._canon_zones).
         "scaleFactor": pb.zone_scale_factor or 1.0,
         "multiLineAddressing": pb.line_addressing or 0,
         "daligroupoffset": None,
