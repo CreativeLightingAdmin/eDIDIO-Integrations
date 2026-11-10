@@ -40,7 +40,9 @@ TOOLS_BY_TASK = """\
 ## Tools by task
 
 Reads run at once; anything the controller stores is preview_* -> confirm(token)
-and ends with a save. Indices are 0-based (List 1 = 0); replies show both.
+and ends with a save; confirm returns an undo token (undo_last_write shows the latest)
+for sequences, themes, zones, schedules, sensors, inputs and outputs. Indices are
+0-based (List 1 = 0); replies show both.
 
 With SPEKTRA_AI_TOOLS=dynamic only the core tools are listed at the start: load a
 group first with load_tools (authoring, devices, dali, logs, projects; see

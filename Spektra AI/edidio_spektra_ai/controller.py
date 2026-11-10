@@ -54,6 +54,15 @@ def legacy_tls_context() -> "ssl.SSLContext":
     return ctx
 
 
+def _is_live(reply, kind: str) -> bool:
+    """A read reply holds a real sequence/theme: not an empty slot (an ack) and not
+    SpektraPlus's deletion marker, which SpektraPlus also treats as empty on read.
+    Counting markers would also break sync parity."""
+    from .undo import DELETION_MARKER_NAME
+    return (reply.WhichOneof("payload") == kind
+            and getattr(reply, kind).title != DELETION_MARKER_NAME)
+
+
 def _default_factory(host, port, use_tls):
     return EdidioClient(host, port, use_tls=use_tls,
                         ssl_context=legacy_tls_context() if use_tls else None)
@@ -278,7 +287,7 @@ class SpektraController:
         out = []
         for i in await self.spektra_slots("SEQUENCE"):
             reply = await self._read_spektra(SpektraTargetType.SEQUENCE, i)
-            if reply.WhichOneof("payload") == "spektra_sequence":
+            if _is_live(reply, "spektra_sequence"):
                 s = reply.spektra_sequence
                 direction = ("cycle" if s.is_cycle_direction else
                              "reverse" if s.is_reverse_direction else "")
@@ -299,7 +308,7 @@ class SpektraController:
         out = []
         for i in await self.spektra_slots("THEME"):
             reply = await self._read_spektra(SpektraTargetType.THEME, i)
-            if reply.WhichOneof("payload") == "spektra_theme":
+            if _is_live(reply, "spektra_theme"):
                 t = reply.spektra_theme
                 out.append({"index": t.index, "title": t.title, "colours": len(t.colours)})
         return out
@@ -309,7 +318,7 @@ class SpektraController:
         out = []
         for i in await self.spektra_slots("SEQUENCE"):
             reply = await self._read_spektra(SpektraTargetType.SEQUENCE, i)
-            if reply.WhichOneof("payload") == "spektra_sequence":
+            if _is_live(reply, "spektra_sequence"):
                 out.append(spektra_map.sequence_to_dict(reply.spektra_sequence))
         return out
 
@@ -317,7 +326,7 @@ class SpektraController:
         out = []
         for i in await self.spektra_slots("THEME"):
             reply = await self._read_spektra(SpektraTargetType.THEME, i)
-            if reply.WhichOneof("payload") == "spektra_theme":
+            if _is_live(reply, "spektra_theme"):
                 out.append(spektra_map.theme_to_dict(reply.spektra_theme))
         return out
 

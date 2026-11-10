@@ -198,7 +198,13 @@ the live protobuf descriptors so it never drifts from the firmware.
 
 - **Persistent writes are preview → confirm.** The preview shows exactly what will be
   written (and a token); `confirm(token)` performs the write and reports the
-  controller's acknowledgement.
+  controller's acknowledgement. A preview is confirmed only on the connection it
+  was made on, within 15 minutes.
+- **Writes can be undone.** Before writing a sequence, theme, zone, schedule,
+  sensor, inputs or outputs, `confirm` reads what it is about to overwrite and
+  returns an undo token that puts it back exactly (the controller's own copy,
+  re-sent). `undo_last_write` shows the most recent one. Other writes (DALI gear,
+  lists, logic, line types) say they cannot be undone automatically.
 - **Transient control is immediate** (dim / play / stop / one-off DALI).
 - **DALI commissioning is destructive** (writes device addresses) and gated behind
   `preview_dali_commission` → `confirm`.

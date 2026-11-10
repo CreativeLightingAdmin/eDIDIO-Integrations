@@ -44,7 +44,7 @@ GROUPS: dict[str, dict] = {
             "list_zones", "get_zone_details", "list_sequences", "list_themes",
             "play_sequence", "play_theme", "stop_zone", "set_zone_colour", "send_dali",
             "send_dmx", "dali_levels", "query_dmx_cache", "run_command",
-            "command_reference", "change_profile", "confirm",
+            "command_reference", "change_profile", "confirm", "undo_last_write",
         ],
     },
     "authoring": {

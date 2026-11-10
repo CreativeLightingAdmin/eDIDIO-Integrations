@@ -26,7 +26,7 @@ from .authoring import (
 from .capability_guide import build_guide
 from . import toolsets
 from .controller import SpektraController, summarize_discovery
-from . import dali, event_log, notify, sync
+from . import dali, event_log, notify, sync, undo
 from .spektra_diff import diff, format_diff
 from .spektra_file import SpektraFileError, load_spektra, summarize
 from .spektra_validate import format_issues, validate
@@ -73,16 +73,20 @@ def _slots_hint(err) -> str:
 # A preview is confirmed on the connection it was made on, and soon: it was built
 # from what the controller held then, and its frames carry that connection's ids.
 TOKEN_TTL_S = 15 * 60
+# An undo restores what the controller held just before a write, read at that moment,
+# so it stays valid longer - but only on the same connection.
+UNDO_TTL_S = 12 * 60 * 60
+_last_undo: dict = {}          # {"token": ..., "what": ...} of the most recent write
 
 
-def _new_token(messages, preview, on_success=None):
+def _new_token(messages, preview, on_success=None, ttl=TOKEN_TTL_S):
     now = time.monotonic()
-    for t in [t for t, p in _pending.items() if now - p["made"] > TOKEN_TTL_S]:
+    for t in [t for t, p in _pending.items() if now - p["made"] > p["ttl"]]:
         del _pending[t]                       # forget expired previews
     token = secrets.token_hex(4)
     connected = _controller.connected
     _pending[token] = {"messages": messages, "preview": preview, "on_success": on_success,
-                       "made": now,
+                       "made": now, "ttl": ttl,
                        # None = built offline (e.g. a sequence spec): not tied to a controller
                        "host": _controller.host if connected else None,
                        "generation": _controller.generation if connected else None}
@@ -92,9 +96,9 @@ def _new_token(messages, preview, on_success=None):
 def _token_problem(pending) -> str:
     """Why a pending preview may not be confirmed now, or '' if it may."""
     age = time.monotonic() - pending["made"]
-    if age > TOKEN_TTL_S:
-        return (f"This preview is {int(age // 60)} minutes old (previews last "
-                f"{TOKEN_TTL_S // 60}); the controller may have changed since. "
+    if age > pending["ttl"]:
+        return (f"This preview is {int(age // 60)} minutes old (it lasted "
+                f"{pending['ttl'] // 60}); the controller may have changed since. "
                 "Make a fresh preview.")
     if pending["generation"] is not None and (
             not _controller.connected or pending["generation"] != _controller.generation):
@@ -441,10 +445,15 @@ async def confirm(token: str) -> str:
                     f"written. Gear on the line now: {res.get('total_addressed', 0)} at "
                     f"{res.get('addresses', [])}.")
         return f"Commissioning failed after {new} address(es): {res.get('error')}"
+    # Read what this write overwrites, so it can be put back (undo.py).
+    try:
+        snap = await undo.snapshot(_controller, pending["messages"])
+    except Exception as err:  # noqa: BLE001 - undo is a safety net, not a gate
+        snap = {"frames": None, "covers": [], "missing": [f"read failed: {err}"]}
     try:
         acks = await _controller.send_and_ack(pending["messages"])
     except Exception as err:  # noqa: BLE001
-        return f"Error writing to controller: {err}"
+        return f"Error writing to controller: {err}" + _undo_offer(snap, attempted=True)
     ok = all(a.get("ok") for a in acks)
     failed = [f"#{i + 1}: {a.get('code')}" + (f" ({a['reason']})" if a.get("reason") else "")
               for i, a in enumerate(acks) if not a.get("ok")]
@@ -458,8 +467,37 @@ async def confirm(token: str) -> str:
         except Exception as err:  # noqa: BLE001 — a write succeeded; ledger is best-effort
             note = f" (sync ledger not updated: {err})"
     return (("Done. " if ok else "Completed with issues. ")
-            + f"Controller responses: {acks}" + note)
+            + f"Controller responses: {acks}" + note + _undo_offer(snap))
 
+
+def _undo_offer(snap, attempted=False) -> str:
+    """Register the undo for a write and say how to use it."""
+    if not snap["frames"]:
+        if snap["missing"] and not attempted:
+            return ("\nThis write cannot be undone automatically ("
+                    + "; ".join(snap["missing"][:3]) + ").")
+        return ""
+    what = ", ".join(snap["covers"])
+    token = _new_token(snap["frames"], f"Undo: put back {what}", ttl=UNDO_TTL_S)
+    _last_undo.clear()
+    _last_undo.update(token=token, what=what)
+    return (f"\nTo undo: confirm(token=\"{token}\") puts back {what} as it was just before "
+            f"(or undo_last_write; valid {UNDO_TTL_S // 3600} h on this connection).")
+
+
+@server.tool()
+async def undo_last_write() -> str:
+    """Show the undo for the most recent confirmed write (what it restores, and its
+    confirm token). Nothing is written until that token is confirmed."""
+    token = _last_undo.get("token")
+    pending = _pending.get(token) if token else None
+    if pending is None:
+        return "No undo available (nothing written yet on this connection, or it was used)."
+    problem = _token_problem(pending)
+    if problem:
+        return problem.replace("This preview", "The undo")
+    return (f"PREVIEW: put back {_last_undo['what']} as it was before the last write.\n"
+            f"Call confirm(token=\"{token}\") to restore it.")
 
 # --- live playback on a zone ------------------------------------------------
 
