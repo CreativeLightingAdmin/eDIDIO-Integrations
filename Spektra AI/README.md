@@ -306,6 +306,19 @@ It runs the tools and reports PASS / FAIL / SKIP for each. `--writes` adds a sce
 store/remove and a power-on change/restore on one DALI fitting, each read back and
 left as found. See the [user guide](docs/USER_GUIDE.md#10-the-bench-test).
 
+**Sequence bench check** (writes; borrows one zone and one sequence slot, and puts
+both back exactly):
+
+```bash
+python tools/sequence_bench.py --host 192.168.1.50 --tls --zone 3 --slot 36 --line 2
+```
+
+It makes the zone a DMX zone of 12 RGBW fixtures on the given DMX line (they will
+light), then writes every sequence type and option through `preview_sequence`, and
+compares the controller's DMX level cache, frame for frame, with the sequence model
+(`sequence_model.py`) that the dry run in `preview_sequence` uses. Run it on each
+firmware release: a change in the controller's sequence engine shows as a failure.
+
 Everything is verified with **no controller** (stub clients + real-file fixtures).
 `tests/test_sync_parity.py` pins hashes produced by SpektraPlus's own
 sync hash (regenerate them when the app changes its hash pipeline). Live

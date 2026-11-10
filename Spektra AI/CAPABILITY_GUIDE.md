@@ -171,7 +171,9 @@ the chase/build types over blocks of that many lights (0 = the whole zone);
 colours; `random_types` (a list of types, or "any") makes the controller switch to
 a random type every 1 min (ms steps) / 10 min (s) / 1 h (min) / 2 h (h);
 `comet_tail` sets the comet's tail length (default 3). Long times are stored in
-s/min/h automatically (the controller's fields are 16-bit).
+s/min/h automatically (the controller's fields are 16-bit). Add `zone` (or `lights`)
+to the spec for a dry run: the first steps, one character per fixture, as the
+controller will draw them (checked against a real controller's DMX output).
 `transition` blends (0), snaps (1), or fades to black (2). Sequences auto-save
 to flash on the device. Index 0-143.
 

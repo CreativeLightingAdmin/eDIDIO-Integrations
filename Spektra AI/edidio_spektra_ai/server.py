@@ -14,6 +14,7 @@ import secrets
 import time
 from datetime import datetime
 
+import edidio_control_py.eDS10_ProtocolBuffer_pb2 as pb
 from mcp.server.mcpserver import MCPServer
 
 from .authoring import (
@@ -383,8 +384,35 @@ async def preview_sequence(spec: dict) -> str:
     [[r,g,b],...], title, time_per_step_ms, fade_ms, time_per_colour_ms (chases;
     default 2000), range (lights per repeat, 0 = all), background [r,g,b], reverse |
     cycle, transition, random_colour_order, random_types [types] | "any", comet_tail}.
-    Each step lasts time_per_step_ms + fade_ms. Returns a preview + token."""
-    return _preview(compile_sequence, spec)
+    Each step lasts time_per_step_ms + fade_ms. Add zone (or lights) for a dry run
+    of the first steps. Returns a preview + token."""
+    out = _preview(compile_sequence, spec)
+    if 'token="' not in out:
+        return out
+    dry = await _dry_run(spec)
+    return out.replace("\n\nCall confirm", f"\n\n{dry}\n\nCall confirm", 1) if dry else out
+
+
+async def _dry_run(spec: dict) -> str:
+    """The first steps as the controller will draw them (sequence_model), on the
+    zone's light count (spec zone, read from the controller) or spec lights."""
+    from . import sequence_model
+    lights, firmware = spec.get("lights"), ""
+    try:
+        if lights is None and spec.get("zone") is not None and _controller.connected:
+            lights = (await _controller.read_zone(int(spec["zone"]))).get("number_of_lights")
+        if lights and _controller.connected:
+            firmware = (await _controller.read_system_counts()).get("firmware", "")
+    except Exception:  # noqa: BLE001 - the dry run is a courtesy; the preview stands
+        pass
+    if not lights:
+        return ""
+    frames, _ = compile_sequence(spec)
+    msg = pb.EdidioMessage()
+    msg.ParseFromString(frames[0][3:])
+    seq = sequence_model.Sequence.from_pb(msg.spektra_sequence)
+    return sequence_model.render(seq, int(lights), steps=min(12, max(4, int(lights))),
+                                 colours=spec.get("colours"), firmware=firmware)
 
 
 @server.tool()

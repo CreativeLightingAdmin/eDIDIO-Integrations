@@ -64,13 +64,14 @@ def test_offline_preview_confirms_on_a_later_connection():
     assert "Done" in run(srv.confirm(token))
 
 
-def test_expired_preview_is_refused(monkeypatch):
+def test_expired_preview_is_refused():
     fresh_controller()
     run(srv.connect_controller("10.0.0.1"))
     token = token_of(run(srv.preview_sequence(SPEC)))
     srv._pending[token]["made"] -= srv.TOKEN_TTL_S + 60
+    before = len(sent_frames())            # the preview itself may read (dry run)
     out = run(srv.confirm(token))
-    assert "minutes old" in out and sent_frames() == []
+    assert "minutes old" in out and len(sent_frames()) == before   # confirm sent nothing
 
 
 def test_expired_previews_are_forgotten():
