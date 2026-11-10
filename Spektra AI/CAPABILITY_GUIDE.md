@@ -165,6 +165,11 @@ particle cannon; default 2 s); each has a matching `_unit` (0=ms,1=s,2=min,3=hr)
 The fade is added to both: a step lasts `time_per_step` + fade. `range` repeats
 the chase/build types over blocks of that many lights (0 = the whole zone);
 `background` sets the colour of unlit fixtures (first 3 channels only).
+`reverse` or `cycle` (bounce) set the direction; `random_colour_order` shuffles the
+colours; `random_types` (a list of types, or "any") makes the controller switch to
+a random type every 1 min (ms steps) / 10 min (s) / 1 h (min) / 2 h (h);
+`comet_tail` sets the comet's tail length (default 3). Long times are stored in
+s/min/h automatically (the controller's fields are 16-bit).
 `transition` blends (0), snaps (1), or fades to black (2). Sequences auto-save
 to flash on the device. Index 0-143.
 

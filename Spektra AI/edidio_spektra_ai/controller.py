@@ -283,7 +283,10 @@ class SpektraController:
                             "time_per_colour": s.time_per_colour,
                             "time_per_colour_unit": s.time_per_colour_unit,
                             "fade_ms": s.fade_time_by_10ms * 10, "range": s.range,
-                            "direction": direction})
+                            "direction": direction,
+                            "random_colour_order": bool(s.has_random_colour_order),
+                            "random_types": (s.random_types_mask if s.is_randomised_type
+                                             else None)})
             # an INDEX_OUT_OF_BOUNDS ack means an empty slot -> skip
         return out
 

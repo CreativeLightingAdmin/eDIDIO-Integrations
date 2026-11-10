@@ -46,6 +46,12 @@ SEQUENCE_TYPE_NAMES = {
 COLOUR_TIMER_TYPES = {1, 2, 3, 5, 8, 9, 15}     # colour from the colour timer
 RANGE_TYPES = {1, 2, 3, 6, 7, 14, 15}           # repeat over blocks of `range` lights
 BACKGROUND_TYPES = {1, 2, 3, 6, 8, 10, 11, 14, 15}
+DIRECTION_TYPES = {0, 1, 2, 3, 4, 6, 10, 11, 13, 14, 15}   # honour reverse / cycle
+RANDOM_ORDER_TYPES = {0, 1, 2, 3, 5, 8, 9, 10, 11, 15}     # honour random colour order
+COMET_TYPES = {3}                                # args[3] = comet tail length
+# With random types on, the firmware picks a new type this often, by step unit
+# (sequence_handle_step: 60 / 600 / 3600 / 7200 s).
+RANDOM_TYPE_PERIOD = {0: "1 minute", 1: "10 minutes", 2: "1 hour", 3: "2 hours"}
 DEFAULT_TIME_PER_COLOUR_MS = 2000               # SpektraPlus's preset value
 SEQUENCE_TYPE_LABELS = {v: k for k, v in SEQUENCE_TYPE_NAMES.items()}
 TRANSITION_NAMES = {"blend": SpektraTransitionType.BLEND, "snap": SpektraTransitionType.SNAP,
@@ -110,6 +116,27 @@ def _colour_names(colours):
 
 # --- sequences -------------------------------------------------------------
 
+# The controller stores step and colour times as 16-bit values with a unit
+# (colour.h: uint16_t time_per_step + time_per_step_unit); 1.6.3 refuses a value
+# over 65535. So a time is sent in the smallest unit it fits in.
+_UNIT_MS = {0: 1, 1: 1000, 2: 60_000, 3: 3_600_000}
+_UNIT_WORD = {0: "ms", 1: "s", 2: "min", 3: "h"}
+_TIME_MAX = 0xFFFF
+
+
+def _time_field(ms: int, what: str):
+    """ms -> (value, unit, note). The note says when the time had to be rounded."""
+    for unit, mult in _UNIT_MS.items():
+        value = round(ms / mult)
+        if value <= _TIME_MAX:
+            if value * mult != ms:
+                return value, unit, (f"{what} {ms} is stored in {_UNIT_WORD[unit]} "
+                                     f"(16-bit field), so it becomes {value} "
+                                     f"{_UNIT_WORD[unit]} = {value * mult}ms")
+            return value, unit, ""
+    raise SpecError(f"{what} {ms} is longer than the controller can store "
+                    f"({_TIME_MAX} hours)")
+
 def compile_sequence(spec: dict, *, message_id: int = 1):
     index = int(spec.get("index", 0))
     if not (0 <= index <= SPEKTRA_SEQUENCE_MAX_INDEX):
@@ -143,10 +170,10 @@ def compile_sequence(spec: dict, *, message_id: int = 1):
     if not 0 <= light_range <= 512:
         raise SpecError(f"range {light_range} is outside 0-512 (0 = the whole zone)")
 
-    # Background colour: the firmware reads only the first 3 channels (args[0..2]);
-    # args[3] is the comet tail length, so it is left at 0 (the default tail).
+    # args: [0..2] background colour (the firmware reads only these 3 channels),
+    # [3] comet tail length (0 = the default of 3), [4] unused.
     bg = spec.get("background")
-    args = None
+    vals = []
     if bg is not None:
         if not isinstance(bg, list) or not 1 <= len(bg) <= 3:
             raise SpecError("'background' must be 1-3 channel values, e.g. [0,0,40] "
@@ -154,39 +181,97 @@ def compile_sequence(spec: dict, *, message_id: int = 1):
         vals = [int(v) for v in bg]
         if any(not 0 <= v <= 254 for v in vals):
             raise SpecError("background values must be 0-254 (255 means 'not set')")
-        args = vals + [0] * (5 - len(vals))
+    tail = spec.get("comet_tail")
+    if tail is not None:
+        tail = int(tail)
+        if not 1 <= tail <= 254:
+            raise SpecError(f"comet_tail {tail} is outside 1-254")
+    args = None
+    if bg is not None or tail is not None:
+        args = (vals + [0, 0, 0])[:3] + [tail or 0, 0]
+
+    # Direction: cycle (bounce) wins over reverse in the firmware, so ask for one.
+    reverse, cycle = bool(spec.get("reverse")), bool(spec.get("cycle"))
+    if reverse and cycle:
+        raise SpecError("choose 'reverse' or 'cycle', not both (cycle wins on the controller)")
+
+    # Random colour order, and random types: the controller switches to a random type
+    # from the list now and then. An empty list or "any" means any type.
+    random_order = bool(spec.get("random_colour_order", spec.get("random_color_order")))
+    rt = spec.get("random_types")
+    random_mask, random_on, pool = 0, False, {seq_type}
+    if rt not in (None, False, []):
+        random_on = True
+        if rt in (True, "any", "all"):
+            pool = set(SEQUENCE_TYPE_NAMES.values())
+        else:
+            if not isinstance(rt, list):
+                raise SpecError("'random_types' is a list of sequence types, or \"any\"")
+            pool = {_enum(SEQUENCE_TYPE_NAMES, t, "sequence type") for t in rt}
+            if any(not 0 <= t < len(SEQUENCE_TYPE_NAMES) for t in pool):
+                raise SpecError(f"random_types must be types 0-{len(SEQUENCE_TYPE_NAMES) - 1}")
+            for t in pool:
+                random_mask |= 1 << t
+
+    step_val, step_unit, step_note = _time_field(step_ms, "time_per_step_ms")
+    colour_val, colour_unit, colour_note = _time_field(colour_ms, "time_per_colour_ms")
+    step_ms, colour_ms = step_val * _UNIT_MS[step_unit], colour_val * _UNIT_MS[colour_unit]
 
     frame = EdidioClient.create_spektra_sequence_message(
         message_id, index=index, seq_type=seq_type, colours=colours,
         transition=transition,
-        time_per_step=step_ms, time_per_step_unit=0,
-        time_per_colour=colour_ms, time_per_colour_unit=0,
+        time_per_step=step_val, time_per_step_unit=step_unit,
+        time_per_colour=colour_val, time_per_colour_unit=colour_unit,
         fade_time_by_10ms=fade_by_10ms,
         range=light_range,
         title=title,
-        is_reverse_direction=1 if spec.get("reverse") else 0,
-        is_cycle_direction=1 if spec.get("cycle") else 0,
+        is_reverse_direction=1 if reverse else 0,
+        is_cycle_direction=1 if cycle else 0,
+        is_randomised_type=1 if random_on else 0,
+        random_types_mask=random_mask,
+        has_random_colour_order=random_order,
         args=args,
     )
     type_name = next((k for k, v in SEQUENCE_TYPE_NAMES.items() if v == seq_type), seq_type)
+    # With random types, a field matters if ANY type in the pool uses it.
+    which = "none of the random types use" if random_on else f"`{type_name}` does not use"
     fade_txt = f"{fade_ms}ms fade" if fade_ms else "no fade (snap)"
     parts = [f"step {step_ms}ms", fade_txt]
     if fade_ms:
         parts.append(f"each step lasts {step_ms + fade_ms}ms (step + fade)")
-    notes = []
-    if seq_type in COLOUR_TIMER_TYPES:
+    notes = [n for n in (step_note, colour_note) if n]
+    if transition == SpektraTransitionType.FADE_TO_BLACK:
+        notes.append("fade_to_black is not implemented by the controller (1.6.3): it plays "
+                     "the same as blend")
+    if pool & COLOUR_TIMER_TYPES:
         parts.append(f"each colour {colour_ms + fade_ms}ms")
     elif "time_per_colour_ms" in spec:
-        notes.append(f"`{type_name}` takes its colours from the steps, so time_per_colour_ms "
-                     "has no effect")
+        notes.append(f"{which} time_per_colour_ms (the colours follow the steps)")
     if light_range:
         parts.append(f"range {light_range} lights")
-        if seq_type not in RANGE_TYPES:
-            notes.append(f"`{type_name}` does not use range")
-    if args is not None:
+        if not pool & RANGE_TYPES:
+            notes.append(f"{which} range")
+    if bg is not None:
         parts.append(f"background {vals}")
-        if seq_type not in BACKGROUND_TYPES:
-            notes.append(f"`{type_name}` does not show the background colour")
+        if not pool & BACKGROUND_TYPES:
+            notes.append(f"{which} the background colour")
+    if tail is not None:
+        parts.append(f"comet tail {tail}")
+        if not pool & COMET_TYPES:
+            notes.append(f"{which} comet_tail (comet only)")
+    if reverse or cycle:
+        parts.append("cycle (bounce)" if cycle else "reverse")
+        if not pool & DIRECTION_TYPES:
+            notes.append(f"{which} direction")
+    if random_order:
+        parts.append("random colour order")
+        if not pool & RANDOM_ORDER_TYPES:
+            notes.append(f"{which} random colour order")
+    if random_on:
+        names = "any type" if not random_mask else ", ".join(
+            SEQUENCE_TYPE_LABELS[t] for t in sorted(pool))
+        parts.append(f"random type from {names}, changing every "
+                     f"{RANDOM_TYPE_PERIOD[step_unit]}")
     preview = (
         f"**Sequence {index}** \"{title or '(untitled)'}\" - type `{type_name}`, "
         f"{len(colours)} colour(s): {_colour_names(colours)}; {'; '.join(parts)}; "

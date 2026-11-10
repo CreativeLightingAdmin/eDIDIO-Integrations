@@ -177,6 +177,12 @@ def _sequence_line(s: dict) -> str:
         bits.append(f"range {s['range']}")
     if s.get("direction"):
         bits.append(s["direction"])
+    if s.get("random_colour_order"):
+        bits.append("random colour order")
+    if s.get("random_types") is not None:
+        mask = s["random_types"]
+        bits.append("random type from " + ("any type" if not mask else ", ".join(
+            SEQUENCE_TYPE_LABELS.get(i, str(i)) for i in range(16) if mask & (1 << i))))
     return (f"- [{s['index']}] {s['title'] or '(untitled)'} - "
             f"{SEQUENCE_TYPE_LABELS.get(t, f'type {t}')}, {s['colours']} colour(s), "
             + ", ".join(bits))
@@ -339,8 +345,9 @@ def _preview(compile_fn, spec):
 async def preview_sequence(spec: dict) -> str:
     """Preview a sequence to author. spec: {index, type (e.g. 'rotate'), colours
     [[r,g,b],...], title, time_per_step_ms, fade_ms, time_per_colour_ms (chases;
-    default 2000), range (lights per repeat, 0 = all), background [r,g,b], reverse,
-    cycle}. Each step lasts time_per_step_ms + fade_ms. Returns a preview + token."""
+    default 2000), range (lights per repeat, 0 = all), background [r,g,b], reverse |
+    cycle, transition, random_colour_order, random_types [types] | "any", comet_tail}.
+    Each step lasts time_per_step_ms + fade_ms. Returns a preview + token."""
     return _preview(compile_sequence, spec)
 
 
