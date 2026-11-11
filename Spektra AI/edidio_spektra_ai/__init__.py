@@ -8,4 +8,4 @@ preview/confirm safety model and read/inspect tools.
 Named for the SpektraPlus feature set it drives.
 """
 
-__version__ = "1.0.0"
+__version__ = "0.3.0"

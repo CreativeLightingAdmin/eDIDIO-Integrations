@@ -19,7 +19,8 @@ and troubleshoot — in plain language:
 > the bench test.
 >
 > **Compatibility, what is verified on hardware, and what is still to do:** see
-> [COMPATIBILITY.md](COMPATIBILITY.md). **Every tool, grouped by task:** the
+> [COMPATIBILITY.md](COMPATIBILITY.md); what changed in each version:
+> [CHANGELOG.md](CHANGELOG.md). **Every tool, grouped by task:** the
 > capability guide ([CAPABILITY_GUIDE.md](CAPABILITY_GUIDE.md)), which the assistant
 > also reads as the `edidio://capability-guide` resource.
 >
@@ -341,8 +342,13 @@ with the fleet's RSA-1024 certificate, so Spektra AI uses a dedicated context fo
 Spektra AI/
 ├── edidio_spektra_ai/
 │   ├── server.py            # MCP server, capability-guide resource, preview/confirm, core tools
-│   ├── tools_live.py        # the other tools: health, log, live state, authoring, settings,
-│   │                        #   sensors, DALI-2, RDM, SD, zones, calendar, statement, notify
+│   ├── live/                # the other tools, one module per topic: state, diagnostics,
+│   │                        #   settings, programming, sd_card, dali_tools, rdm_tools
+│   ├── tools_live.py        # imports live/ (registers its tools) and re-exports its names
+│   ├── undo.py              # undo for confirmed writes (re-sends the controller's own copy)
+│   ├── known_controllers.py # remembered TLS certificates per controller address
+│   ├── sequence_model.py    # model of the controller's sequence engine (dry run, bench)
+│   ├── toolsets.py          # tool groups loaded on demand
 │   ├── ops.py               # live operations in the current protocol (diagnostics, log, Wi-Fi, SD)
 │   ├── v2.py                # requests/acks in the current proto (RejectReason, new messages)
 │   ├── commands.py          # friendly command JSON <-> trigger dicts (mirrors SpektraPlus)
@@ -368,10 +374,15 @@ Spektra AI/
 │   ├── capability_guide.py  # guide generated from protobuf descriptors
 │   ├── discovery.py         # LAN discovery
 │   └── templates/           # bundled controller template (device skeleton)
-├── tools/build_example_project.py  # example: generate a project from a functionality statement
+├── tools/
+│   ├── bench_test.py        # end-to-end check of the tools against a controller
+│   ├── sequence_bench.py    # every sequence type vs a controller's DMX output
+│   ├── spektraplus_parity/  # regenerate the SpektraPlus mapper parity fixture
+│   └── build_example_project.py  # example: a project from a functionality statement
 ├── CAPABILITY_GUIDE.md      # generated snapshot of the guide (all tools by task)
 ├── COMPATIBILITY.md         # versions, firmware gates, verified features, to-do
-└── tests/                   # 205 tests (stub clients + real-file fixtures)
+├── CHANGELOG.md             # what changed in each version
+└── tests/                   # 386 tests (stub clients, real-file fixtures, SpektraPlus parity)
 ```
 
 ### Fidelity notes (mirroring SpektraPlus)

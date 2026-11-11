@@ -25,7 +25,7 @@ from .authoring import (
     compile_theme,
 )
 from .capability_guide import build_guide
-from . import toolsets
+from . import __version__, toolsets
 from .controller import SpektraController, summarize_discovery
 from . import dali, event_log, notify, sync, undo
 from .spektra_diff import diff, format_diff
@@ -35,6 +35,7 @@ from .spektra_validate import format_issues, validate
 _LOGGER = logging.getLogger(__name__)
 
 server = MCPServer(
+    version=__version__,
     name="Spektra AI",
     instructions=(
         "Configure, operate and troubleshoot Control Freak eDIDIO lighting controllers "

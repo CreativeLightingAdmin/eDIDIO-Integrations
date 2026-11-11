@@ -61,6 +61,14 @@ hardware, and what is still to do.
   it either way).
 - Background event recorder: kept recording after the launching process exited,
   captured DALI frames, sensor events and connections, and stopped on request.
+- Sequences (`tools/sequence_bench.py`): all 16 types plus range, background,
+  reverse, cycle, comet tail, colour time and fade, written with
+  `preview_sequence` and compared frame for frame with the controller's DMX level
+  cache - 23/23. The same model drives the dry run in `preview_sequence`. Long
+  step and colour times (2 min, 5 min) stored in seconds as sent.
+- Undo: sequence, zone and theme writes, each undone, read back byte-identical.
+- TLS certificate check: first connection remembered, a changed certificate
+  refused, `accept_new_certificate` accepted it again.
 - Live state, `run_command`, profile changes, live colour on DMX and DALI zones,
   per address and by DALI group, and DALI DT8 RGBWAF and xy zones (levels and DT8
   colour values read back from the fittings, frames seen on the bus).
@@ -118,6 +126,29 @@ hardware, and what is still to do.
   station's channel (one radio): a different access-point channel is stored and
   read back, but only used in access-point-only mode.
 
+**Sequences** (measured on 1.6.3; the dry run in `preview_sequence` notes these):
+
+- A step lasts `time_per_step` **plus** the fade; a colour lasts `time_per_colour`
+  plus the fade. A fade can be longer than the step.
+- Step and colour times are 16-bit values with a unit (ms, s, min, h); a value over
+  65535 is refused. Spektra AI sends each time in the smallest unit it fits.
+- `time_per_colour` is used only by the chase-style types (simple and shadow chase,
+  comet, twinkle, fireworks, fire, particle cannon). Spektra AI defaults it to 2 s;
+  0 would be stored as the 50 ms minimum.
+- The chase-style types start on their **second** colour: the colour timer advances
+  once before the first step.
+- Cycle (bounce) holds each end fixture for two steps.
+- The fade-to-black transition plays the same as blend.
+- Radial build with an odd range never lights the middle fixture of each repeat.
+  With several repeats, firmware 1.6.3 and earlier light only the first repeat's
+  mirrored half.
+- Particle cannon's changing speed is shared by every zone and carries on from the
+  last run, so its timing differs from run to run.
+- The background colour uses the first 3 channels only; the next byte sets the comet
+  tail length. Arguments that are not sent are stored as 255 ("not set").
+- A sequence or theme slot titled `!DELETED!` is SpektraPlus's deletion marker; both
+  apps treat it as empty.
+
 ## Firmware issues found (to report)
 
 - **255 on DALI Spektra zones:** the controller's Spektra engine sends a stored 255
@@ -140,6 +171,10 @@ hardware, and what is still to do.
 - Link settings writes (controller-to-controller UDP link: enable, type, mask,
   netmask - readable through `get_device_settings`).
 - SD card writes and deletes.
+- Undo for DALI gear settings, lists, logic and line types (undo covers sequences,
+  themes, zones, schedules, sensors, inputs and outputs).
+- SpektraPlus mapper parity for lists (the other 12 mappers are pinned by
+  `tests/test_spektraplus_parity.py`).
 
 ## Out of scope
 

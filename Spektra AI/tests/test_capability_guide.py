@@ -59,3 +59,14 @@ def test_readme_lists_every_tool():
     readme = (Path(__file__).parent.parent / "README.md").read_text(encoding="utf-8")
     listed = set(re.findall(r"`([a-z][a-z0-9_]+)`", readme))
     assert names - listed == set(), f"tools missing from README.md: {sorted(names - listed)}"
+
+
+def test_one_version_everywhere():
+    """pyproject.toml, the package and what the server tells clients agree."""
+    import re
+    from pathlib import Path
+
+    from edidio_spektra_ai import __version__, server
+    toml = (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+    assert re.search(r'^version = "([^"]+)"', toml, re.M).group(1) == __version__
+    assert server.server.version == __version__
