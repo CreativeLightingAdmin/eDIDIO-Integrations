@@ -272,7 +272,8 @@ def caveats(seq: Sequence, lights: int, firmware: str = "") -> list:
         notes.append("random types: the controller switches type now and then; "
                      "this shows the first type only")
     if seq.type == 15:
-        notes.append("particle cannon speeds up and slows down; steps are shown evenly")
+        notes.append("particle cannon speeds up and slows down (its speed is shared by all "
+                     "zones and carries on from the last run); steps are shown evenly")
     if seq.type in COLOUR_INDEX_TYPES and seq.colours > 1:
         notes.append("the controller starts this type on colour 2 (its colour timer "
                      "advances once before the first step)")

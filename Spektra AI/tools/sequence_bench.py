@@ -35,7 +35,8 @@ from edidio_spektra_ai.undo import _rewrap  # noqa: E402
 
 CH = 4
 RGB = [[255, 0, 0, 0], [0, 255, 0, 0], [0, 0, 255, 0]]
-COLOURS_ONLY = {"twinkle", "fireworks", "fire", "ramp_down"}   # random, or a fade-out flash
+# random, a fade-out flash, or (particle cannon) a speed that carries over between runs
+COLOURS_ONLY = {"twinkle", "fireworks", "fire", "ramp_down", "particle_cannon"}
 
 # (label, spec changes, seconds to watch)
 CASES = [(t, {"type": t}, 7) for t in (

@@ -148,8 +148,8 @@ async def read_only(b: Bench, a, tmp: Path) -> None:
 
     print("\nSD card")
     sd = await b.check("sd_overview", T.sd_overview())
-    if sd.startswith("Error") or "no sd" in sd.lower():
-        b.note("SD logs", "no SD card")
+    if sd.startswith("Error") or any(h in sd.lower() for h in ("no sd", "no card mounted")):
+        b.note("SD logs", "no SD card mounted")
     else:
         await b.check("sd_list_files logs/dali", T.sd_list_files("logs/dali", newest=3))
         await b.check("sd_read_log logs/dali", T.sd_read_log("logs/dali", last=5),

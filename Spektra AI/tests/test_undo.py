@@ -90,7 +90,8 @@ def test_undo_is_tied_to_the_connection_and_lasts_longer():
 
 def test_zone_write_restores_the_zone_settings(monkeypatch):
     from edidio_spektra_ai import tools_live
-    monkeypatch.setattr(tools_live, "_controller", fresh_controller())   # it binds at import
+    from edidio_spektra_ai.live import programming       # defines preview_zone; binds at import
+    monkeypatch.setattr(programming, "_controller", fresh_controller())
     run(srv.connect_controller("10.0.0.1"))
     out = run(srv.confirm(token_of(run(tools_live.preview_zone(2, "dmx", 2, 12, "red,green,blue,white", 1)))))
     assert "puts back zone 3" in out
