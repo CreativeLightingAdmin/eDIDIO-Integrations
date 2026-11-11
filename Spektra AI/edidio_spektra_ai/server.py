@@ -143,10 +143,17 @@ async def discover_controllers() -> str:
 
 
 @server.tool()
-async def connect_controller(host: str, port: int = 23, use_tls: bool = False) -> str:
-    """Connect to an eDIDIO controller by IP/hostname (port 23 TCP, 443 TLS)."""
+async def connect_controller(host: str, port: int = 23, use_tls: bool = False,
+                             accept_new_certificate: bool = False) -> str:
+    """Connect to an eDIDIO controller by IP/hostname (port 23 TCP, 443 TLS). Over TLS a
+    controller's certificate is remembered; a different one is refused unless
+    accept_new_certificate (only when the change is expected, e.g. a replaced unit)."""
     dropped = sum(1 for p in _pending.values() if p["generation"] is not None)
-    out = await _do(lambda: _controller.connect(host, port, use_tls), f"Connected to {host}.")
+    out = await _do(lambda: _controller.connect(
+        host, port, use_tls, accept_new_certificate=accept_new_certificate),
+        f"Connected to {host}.")
+    if out.startswith("Connected") and _controller.certificate_note:
+        out += " " + _controller.certificate_note
     if dropped:
         out += (f" {dropped} unconfirmed preview(s) from the previous connection can no "
                 "longer be confirmed.")

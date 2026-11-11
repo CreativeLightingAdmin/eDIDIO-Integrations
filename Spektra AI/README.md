@@ -205,6 +205,11 @@ the live protobuf descriptors so it never drifts from the firmware.
   returns an undo token that puts it back exactly (the controller's own copy,
   re-sent). `undo_last_write` shows the most recent one. Other writes (DALI gear,
   lists, logic, line types) say they cannot be undone automatically.
+- **Controllers are recognised by their certificate.** eDIDIO certificates cannot be
+  verified (RSA-1024, bound to the device, not an address), so over TLS Spektra AI
+  remembers each address's certificate fingerprint, as SSH does with known hosts,
+  and refuses a different one until it is accepted with `accept_new_certificate`
+  (`~/.spektra_ai/known_controllers.json`, or `$SPEKTRA_AI_STATE`).
 - **Transient control is immediate** (dim / play / stop / one-off DALI).
 - **DALI commissioning is destructive** (writes device addresses) and gated behind
   `preview_dali_commission` → `confirm`.

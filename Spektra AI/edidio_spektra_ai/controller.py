@@ -23,7 +23,7 @@ from edidio_control_py import (
 from edidio_control_py._v2 import eDS10_v2_pb2 as v2pb
 from edidio_control_py.exceptions import EDIDIOTimeoutError
 
-from . import dali, discovery, spektra_map, v2
+from . import dali, discovery, known_controllers, spektra_map, v2
 from .event_stream import DEFAULT_CATEGORIES, EventStream
 from .notify import NotificationManager
 from .scheduling import next_scheduled, parse_calendar_overview
@@ -115,6 +115,7 @@ class SpektraController:
         self._mid = 0
         self._events: EventStream | None = None
         self.notifications = NotificationManager()
+        self.certificate_note = ""      # what the last TLS connect said about the certificate
         self._deadline_task = None
         # Goes up whenever the connection changes (connect, reconnect or disconnect),
         # so a preview made on one connection cannot be confirmed on another.
@@ -125,8 +126,10 @@ class SpektraController:
     def connected(self) -> bool:
         return self._client is not None and self._client.connected
 
-    async def connect(self, host: str, port: int = 23, use_tls: bool = False):
+    async def connect(self, host: str, port: int = 23, use_tls: bool = False, *,
+                      accept_new_certificate: bool = False):
         self.generation += 1
+        self.certificate_note = ""
         if self._client is not None:
             await self._client.disconnect()
         if use_tls and port == 23:
@@ -145,6 +148,17 @@ class SpektraController:
                 await asyncio.sleep(1.0)
         else:  # pragma: no cover
             raise last
+        if use_tls:
+            # Before anything is sent: is this the controller we saw here before?
+            fp = known_controllers.fingerprint(self._client)
+            if fp is not None:
+                try:
+                    self.certificate_note = known_controllers.check(
+                        host, port, fp, accept_new=accept_new_certificate)
+                except known_controllers.CertificateChanged:
+                    await self._client.disconnect()
+                    self._client = None
+                    raise
         self.host = host
         self.port, self.use_tls = port, use_tls
         _retry_reads(self._client)
